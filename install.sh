@@ -130,3 +130,4 @@ ulimit -n 10048
 gen_proxy_file_for_user
 systemctl daemon-reload
 systemctl start 3proxy
+echo "Install Done"
