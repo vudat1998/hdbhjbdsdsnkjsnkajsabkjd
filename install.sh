@@ -104,8 +104,8 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="${WORKDIR}/data.txt"
 mkdir $WORKDIR && cd $_
 
-IP4=$(ip -4 addr show eth0 | grep inet | awk '{print $2}' | cut -d'/' -f1)
-IP6=$(ip -6 addr show eth0 | grep "inet6 240" | grep "/64" | awk '{print $2}' | cut -d'/' -f1 | awk -F: '{print $1":"$2":"$3":"$4}')
+IP4=$(curl -4 -s icanhazip.com)
+IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
 echo "Internal ip = ${IP4}. Exteranl sub for ip6 = ${IP6}"
 
