@@ -113,7 +113,7 @@ echo "How many proxy do you want to create? Example 500"
 read COUNT
 
 FIRST_PORT=10000
-LAST_PORT=$(($FIRST_PORT + $COUNT))
+LAST_PORT=$(($FIRST_PORT + $COUNT - 1))
 
 gen_data >$WORKDIR/data.txt
 gen_iptables_delete > $WORKDIR/boot_iptables_delete.sh
