@@ -110,4 +110,4 @@ gen_proxy_file_for_user
 systemctl daemon-reload
 systemctl restart 3proxy
 upload_proxy
-echo "Done Rotate"
+echo "Rotate Done"
