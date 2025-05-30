@@ -109,5 +109,4 @@ echo "gen_proxy_file_for_user"
 gen_proxy_file_for_user
 systemctl daemon-reload
 systemctl restart 3proxy
-upload_proxy
 echo "Rotate Done"
