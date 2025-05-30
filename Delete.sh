@@ -24,4 +24,4 @@ fi
 echo "[*] Deleting proxy-installer folder..."
 rm -rf /home/proxy-installer
 
-echo "[✔] 3proxy has been completely uninstalled and all configurations removed!"
+echo "Delete Done"
