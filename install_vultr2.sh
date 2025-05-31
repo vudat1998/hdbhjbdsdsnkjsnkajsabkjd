@@ -88,7 +88,7 @@ mkdir -p $WORKDIR && cd $WORKDIR
 IP4=$(curl -4 -s icanhazip.com)
 IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
-echo "Bạn muốn tạo bao nhiêu proxy?"
+echo "How many proxies do you want to create?"
 read COUNT
 
 FIRST_PORT=10000
