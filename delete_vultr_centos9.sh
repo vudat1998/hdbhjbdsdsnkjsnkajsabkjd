@@ -61,4 +61,4 @@ rm -f "${WORKDIR}/data.txt" \
       "${WORKDIR}/boot_ifconfig.sh" \
       "${WORKDIR}/boot_ifconfig_delete.sh"
 
-echo "✅ Đã xoá toàn bộ cấu hình proxy IPv6 trên máy chủ."
+echo "Delete Done"
