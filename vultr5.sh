@@ -70,12 +70,8 @@ fi
 echo "==> Địa chỉ IPv4 máy chủ: $IP4"
 echo "==> Phần subnet IPv6 (4 block đầu): $IP6"
 
-# 9. Hỏi user muốn tạo bao nhiêu proxy
-read -rp "Bạn muốn tạo bao nhiêu proxy? (ví dụ: 500): " COUNT
-if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -le 0 ]; then
-    echo "Giá trị COUNT không hợp lệ."
-    exit 1
-fi
+COUNT=100
+echo "==> Số lượng proxy mặc định: $COUNT"
 
 FIRST_PORT=10000
 LAST_PORT=$((FIRST_PORT + COUNT - 1))
