@@ -111,3 +111,4 @@ gen_proxy_file_for_user
 echo "✅ Xoay proxy thành công!"
 echo "- Danh sách proxy: $WORKDIR/proxy.txt"
 echo "- Chạy lại IPv6 khi reboot: bash ${WORKDIR}/boot_ifconfig.sh"
+echo "Rotate Done"
