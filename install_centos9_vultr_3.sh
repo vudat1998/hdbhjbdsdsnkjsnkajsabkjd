@@ -26,7 +26,7 @@ WORKDATA="${WORKDIR}/data.txt"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-echo "==> Nhập số lượng proxy muốn tạo:"
+echo "How many proxy do you want to create?"
 read -r COUNT
 [[ "$COUNT" =~ ^[0-9]+$ ]] || { echo "❌ Số không hợp lệ"; exit 1; }
 
