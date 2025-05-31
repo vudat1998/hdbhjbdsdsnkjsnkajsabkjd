@@ -140,25 +140,34 @@ sed -i 's|RestartSec=60s|RestartSec=0s|' /etc/systemd/system/3proxy.service
 chmod +x /usr/local/etc/3proxy/bin/3proxy
 cd "$WORKDIR"
 
-# 14. Tạo file cấu hình 3proxy (3proxy.cfg) dựa trên WORKDATA
+# 14. Tạo file cấu hình 3proxy (3proxy.cfg) dựa trên WORKDATA - ĐÃ SỬA ĐỂ XÁC THỰC ĐÚNG
 echo "==> Tạo file cấu hình 3proxy (/usr/local/etc/3proxy/3proxy.cfg)..."
-cat > /usr/local/etc/3proxy/3proxy.cfg <<EOF
-daemon
-maxconn 1000
-nscache 65536
-timeouts 1 5 30 60 180 1800 15 60
-setgid 65535
-setuid 65535
-flush
+{
+  echo "daemon"
+  echo "maxconn 1000"
+  echo "nscache 65536"
+  echo "timeouts 1 5 30 60 180 1800 15 60"
+  echo "setgid 65535"
+  echo "setuid 65535"
+  echo "flush"
 
-# Định nghĩa user/pass
-users $(awk -F "/" 'BEGIN{ORS="";} {print $1 ":CL:" $2 " "}' "$WORKDATA")
+  # Định nghĩa user/pass
+  echo -n "users "
+  awk -F "/" '{printf "%s:CL:%s ", $1, $2}' "$WORKDATA"
+  echo ""
 
-# Cho phép từng user, thiết lập proxy -6
-$(awk -F "/" '{print "auth strong\nallow " $1 "\nproxy -6 -n -a -p"$4" -i"$3" -e"$5"\nflush\n"}' "$WORKDATA")
-EOF
+  # Chỉ gọi auth strong 1 lần duy nhất
+  echo "auth strong"
+  # Cho phép tất cả user (vì đã giới hạn user qua users)
+  echo "allow *"
 
-chmod +x /usr/local/etc/3proxy/3proxy.cfg
+  # Thiết lập proxy -6 cho từng user/port/IPv6
+  awk -F "/" '{print "proxy -6 -n -a -p"$4" -i"$3" -e"$5}' "$WORKDATA"
+
+} > /usr/local/etc/3proxy/3proxy.cfg
+
+# Đặt quyền file config đúng chuẩn (không cần chmod +x)
+chmod 644 /usr/local/etc/3proxy/3proxy.cfg
 
 # 15. Tạo file proxy.txt để user có thể download/kiểm tra
 echo "==> Tạo proxy.txt cho user sử dụng"
@@ -176,6 +185,5 @@ echo "==> Hoàn tất cài đặt!"
 echo "- File proxy cho user: ${WORKDIR}/proxy.txt"
 echo "- Nếu bạn khởi động lại máy, hãy chạy:"
 echo "    bash ${WORKDIR}/boot_ifconfig.sh"
-echo "  để thêm lại địa chỉ IPv6."
 echo "- Nếu muốn xóa IPv6 (trước khi chạy script xoá):"
 echo "    bash ${WORKDIR}/boot_ifconfig_delete.sh"
