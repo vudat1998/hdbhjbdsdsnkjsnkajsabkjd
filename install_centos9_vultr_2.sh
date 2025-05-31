@@ -154,3 +154,4 @@ systemctl restart 3proxy
 echo "✅ Hoàn tất cài đặt proxy!"
 echo "- Danh sách proxy: ${WORKDIR}/proxy.txt"
 echo "- Sau khi reboot, chạy lại IPv6: bash ${WORKDIR}/boot_ifconfig.sh"
+"Install Done"
