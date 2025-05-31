@@ -80,7 +80,7 @@ IP4=$(curl -4 -s icanhazip.com)
 IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
 echo "Internal IP = ${IP4}, IPv6 Prefix = ${IP6}"
-echo "Số lượng proxy muốn tạo (ví dụ 500):"
+echo "How many proxy do you want to create?"
 read COUNT
 
 FIRST_PORT=10000
