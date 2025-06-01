@@ -110,7 +110,7 @@ IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
 echo "Internal IP = ${IP4}. External IPv6 prefix = ${IP6}"
 
-echo "Nhập số lượng proxy muốn tạo (ví dụ: 500):"
+echo "How many proxy do you want to create?"
 read -r COUNT
 
 FIRST_PORT=10000
@@ -139,4 +139,4 @@ gen_proxy_file_for_user
 systemctl daemon-reload
 systemctl restart 3proxy
 
-echo "Cài đặt hoàn tất!"
+echo "Install Done"
