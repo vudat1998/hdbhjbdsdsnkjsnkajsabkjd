@@ -20,4 +20,4 @@ rm -rf /home/proxy-installer
 
 echo "[*] Đã xóa cấu hình proxy, iptables và địa chỉ IPv6, giữ nguyên 3proxy."
 
-echo "Hoàn tất!"
+echo "Delete Done"
