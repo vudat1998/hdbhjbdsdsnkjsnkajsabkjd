@@ -51,7 +51,20 @@ chmod 644 "$CONFIG_PATH"
 # Xuất proxy.txt
 awk -F "/" '{print $3 ":" $4 ":" $1 ":" $2}' "$WORKDATA" > "${WORKDIR}/proxy.txt"
 
-# Restart 3proxy
+# 🔓 Mở port firewall-cmd (nếu có firewalld)
+if systemctl is-active --quiet firewalld; then
+    echo "🔥 Mở port firewall..."
+    firewall-cmd --permanent --add-port=${PORT1}/tcp || true
+    firewall-cmd --permanent --add-port=${PORT2}/tcp || true
+    firewall-cmd --reload || true
+fi
+
+# 🔓 Mở port iptables (phòng trường hợp không dùng firewalld)
+echo "🛡️  Thêm iptables rule..."
+iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
+iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
+
+# Khởi động lại 3proxy
 echo "🔁 Khởi động lại 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
