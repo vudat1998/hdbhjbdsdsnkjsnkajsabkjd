@@ -1,6 +1,8 @@
 #!/bin/bash
 # install_snap_vultr_centos9.sh
 # Cài đặt gói cần thiết và biên dịch 3proxy, dùng để tạo snapshot CentOS 9
+# curl -fsSL https://raw.githubusercontent.com/vudat1998/hdbhjbdsdsnkjsnkajsabkjd/main/install_snap_vultr_centos9.sh | bash
+
 
 set -e
 
