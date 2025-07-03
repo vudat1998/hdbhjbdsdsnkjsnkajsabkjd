@@ -7,6 +7,7 @@ WORKDATA="${WORKDIR}/data.txt"
 CERT_DIR="/usr/local/etc/3proxy"
 SSL_CONF="${CERT_DIR}/sslplugin.conf"
 CONFIG_PATH="${CERT_DIR}/3proxy.cfg"
+PLUGIN_PATH="/usr/local/3proxy/libexec/SSLPlugin.ld.so"
 
 mkdir -p "$WORKDIR"
 mkdir -p "$CERT_DIR"
@@ -44,6 +45,8 @@ if [[ ! -f "${CERT_DIR}/cert.pem" || ! -f "${CERT_DIR}/key.pem" ]]; then
         -keyout "${CERT_DIR}/key.pem" \
         -out "${CERT_DIR}/cert.pem" \
         -subj "/CN=proxy.local"
+    chmod 600 "${CERT_DIR}/key.pem"
+    chmod 644 "${CERT_DIR}/cert.pem"
 else
     echo "✅ Đã có cert.pem và key.pem"
 fi
@@ -52,7 +55,7 @@ fi
 cat <<EOF > "$SSL_CONF"
 ssl_server_cert ${CERT_DIR}/cert.pem
 ssl_server_key ${CERT_DIR}/key.pem
-ssl_serv
+ssl_server
 EOF
 
 # Tạo file cấu hình 3proxy.cfg
@@ -64,18 +67,19 @@ EOF
   echo "setgid 65535"
   echo "setuid 65535"
   echo "flush"
+  echo "log /usr/local/etc/3proxy/logs/3proxy.log D"
+  echo "logformat \"L%t %U %C %R %O %I %h %T\""
 
-  echo "plugin /usr/local/lib/3proxy/SSLPlugin.so"
-  echo "pluginconf ${SSL_CONF}"
+  echo "plugin $PLUGIN_PATH sslplugin_init"
+  echo "pluginconf $SSL_CONF"
 
   echo -n "users "
   awk -F "/" '{printf "%s:CL:%s ", $1, $2}' "$WORKDATA"
   echo ""
 
   echo "auth strong"
-  awk -F "/" '{print "allow " $1 "\nproxy -n -a -S -p" $4 " -i" $3 " -e" $5}' "$WORKDATA"
+  awk -F "/" '{print "allow " $1 "\nproxy -n -a --ssl -p" $4 " -i" $3 " -e" $5}' "$WORKDATA"
 
-  echo "ssl_noserv"
 } > "$CONFIG_PATH"
 
 chmod 644 "$CONFIG_PATH"
@@ -92,15 +96,36 @@ if systemctl is-active --quiet firewalld; then
 fi
 
 # Mở iptables nếu cần
-echo "🛡️  Thêm rule iptables..."
+echo "🛡️ Thêm rule iptables..."
 iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
 iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
+
+# Sửa file systemd để trỏ đến cấu hình đúng
+cat <<EOF > /etc/systemd/system/3proxy.service
+[Unit]
+Description=3proxy Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+Environment=CONFIGFILE=${CONFIG_PATH}
+ExecStart=/bin/3proxy \$CONFIGFILE
+Restart=always
+RestartSec=0s
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
 # Restart 3proxy
 echo "🔁 Khởi động lại 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
+
+# Kiểm tra trạng thái
+echo "🔍 Kiểm tra trạng thái 3proxy..."
+systemctl status 3proxy
 
 echo "✅ Tạo proxy HTTPS thành công!"
 cat "${WORKDIR}/proxy.txt"
