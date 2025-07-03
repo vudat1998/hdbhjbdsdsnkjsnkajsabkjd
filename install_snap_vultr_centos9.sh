@@ -28,7 +28,7 @@ mkdir -p /home/proxy-installer
 cd /home/proxy-installer
 
 if [ ! -f /usr/local/etc/3proxy/bin/3proxy ]; then
-    echo "==> Tải và cài đặt 3proxy v0.9.4"
+    echo "==> Tải và cài đặt 3proxy v0.9.5"
     THIRD_URL="https://raw.githubusercontent.com/vudat1998/hdbhjbdsdsnkjsnkajsabkjd/main/3proxy-3proxy-0.9.5.tar.gz"
     wget -qO- "$THIRD_URL" | bsdtar -xvf- >/dev/null
     cd 3proxy-0.9.5
