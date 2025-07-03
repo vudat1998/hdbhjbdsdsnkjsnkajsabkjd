@@ -11,6 +11,7 @@ PLUGIN_PATH="/usr/local/3proxy/libexec/SSLPlugin.ld.so"
 
 mkdir -p "$WORKDIR"
 mkdir -p "$CERT_DIR"
+mkdir -p "$CERT_DIR/logs"
 cd "$WORKDIR"
 
 if [ -z "$1" ]; then
@@ -69,17 +70,13 @@ EOF
   echo "flush"
   echo "log /usr/local/etc/3proxy/logs/3proxy.log D"
   echo "logformat \"L%t %U %C %R %O %I %h %T\""
-
   echo "plugin $PLUGIN_PATH sslplugin_init"
   echo "pluginconf $SSL_CONF"
-
   echo -n "users "
   awk -F "/" '{printf "%s:CL:%s ", $1, $2}' "$WORKDATA"
   echo ""
-
   echo "auth strong"
   awk -F "/" '{print "allow " $1 "\nproxy -n -a --ssl -p" $4 " -i" $3 " -e" $5}' "$WORKDATA"
-
 } > "$CONFIG_PATH"
 
 chmod 644 "$CONFIG_PATH"
@@ -100,7 +97,7 @@ echo "🛡️ Thêm rule iptables..."
 iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
 iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
 
-# Sửa file systemd để trỏ đến cấu hình đúng
+# Sửa file systemd
 cat <<EOF > /etc/systemd/system/3proxy.service
 [Unit]
 Description=3proxy Proxy Server
