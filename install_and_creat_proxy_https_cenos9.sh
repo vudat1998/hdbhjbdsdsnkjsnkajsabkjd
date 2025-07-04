@@ -30,6 +30,7 @@ if [ ! -f /bin/3proxy ]; then
     cd 3proxy-0.9.5
     # Sửa Makefile.Linux
     sed -i 's|cp Makefile Makefile.var plugins/$$p; ||' Makefile.Linux
+    sed -i 's|plugins/$$p|src/plugins/$$p|' Makefile.Linux
     make -f Makefile.Linux
     make -f Makefile.Linux allplugins
     sudo make -f Makefile.Linux install
