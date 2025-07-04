@@ -82,6 +82,11 @@ $(awk -F "/" '{print "allow " $1 "\nproxy -n -a --ssl -p" $4 " -i" $3 " -e" $5}'
 EOF
 
 sudo chmod 644 "$CONFIG_PATH"
+sudo chown nobody:nobody "$CERT_DIR/logs"
+sudo chmod 775 "$CERT_DIR/logs"
+sudo touch "$CERT_DIR/logs/3proxy.log"
+sudo chown nobody:nobody "$CERT_DIR/logs/3proxy.log"
+sudo chmod 664 "$CERT_DIR/logs/3proxy.log"
 
 # Xuất proxy.txt
 awk -F "/" '{print $3 ":" $4 ":" $1 ":" $2}' "$WORKDATA" > "${WORKDIR}/proxy.txt"
@@ -98,6 +103,24 @@ fi
 echo "🛡️ Thêm rule iptables..."
 sudo iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
 sudo iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
+
+# Cập nhật file systemd
+cat <<EOF | sudo tee /etc/systemd/system/3proxy.service
+[Unit]
+Description=3proxy Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+Environment=CONFIGFILE=/usr/local/etc/3proxy/3proxy.cfg
+ExecStart=/bin/3proxy \$CONFIGFILE
+Restart=always
+RestartSec=3s
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
 # Khởi động lại 3proxy
 echo "🔁 Khởi động lại 3proxy..."
