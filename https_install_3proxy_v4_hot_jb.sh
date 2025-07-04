@@ -68,8 +68,6 @@ nserver 8.8.4.4
 maxconn 1000
 nscache 65536
 timeouts 1 5 30 60 180 1800 15 60
-setgid 65535
-setuid 65535
 flush
 
 # Logging (tuỳ chọn)
