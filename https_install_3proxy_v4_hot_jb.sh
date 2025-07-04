@@ -11,9 +11,9 @@ CONFIG_PATH="${CERT_DIR}/3proxy.cfg"
 PLUGIN_SRC="${BUILD_DIR}/bin/SSLPlugin.ld.so"
 PLUGIN_PATH="${LIBEXEC_DIR}/SSLPlugin.ld.so"
 
-# 1. Chuẩn bị thư mục
+# 1. Chuẩn bị thư mục (bỏ logs)
 mkdir -p "$WORKDIR"
-mkdir -p "${CERT_DIR}/logs"
+mkdir -p "${CERT_DIR}"
 mkdir -p "${LIBEXEC_DIR}"
 cd "$WORKDIR"
 
@@ -61,7 +61,7 @@ sudo cp "${PLUGIN_SRC}" "${PLUGIN_PATH}"
 sudo chmod 755 "${PLUGIN_PATH}"
 sudo chown root:root "${PLUGIN_PATH}"
 
-# 7. Tạo file cấu hình 3proxy.cfg
+# 7. Tạo file cấu hình 3proxy.cfg (bỏ log)
 sudo tee "${CONFIG_PATH}" > /dev/null <<EOF
 nserver 8.8.8.8
 nserver 8.8.4.4
@@ -73,9 +73,6 @@ timeouts 1 5 30 60 180 1800 15 60
 setgid 65535
 setuid 65535
 flush
-
-log ${CERT_DIR}/logs/3proxy.log D
-logformat "L%t %U %C %R %O %I %h %T"
 
 # Load SSLPlugin và bật HTTPS proxy
 plugin ${PLUGIN_PATH} ssl_plugin
@@ -95,16 +92,10 @@ ssl_noserv
 # Ví dụ: proxy -n -a -p3128 -i${IP4} -e${IP4}
 EOF
 
-# 8. Thiết lập logs
-sudo chown nobody:nobody "${CERT_DIR}/logs"
-sudo touch "${CERT_DIR}/logs/3proxy.log"
-sudo chown nobody:nobody "${CERT_DIR}/logs/3proxy.log"
-sudo chmod 664 "${CERT_DIR}/logs/3proxy.log"
-
-# 9. Xuất proxy.txt
+# 8. Xuất proxy.txt
 awk -F "/" '{print $3 ":" $4 ":" $1 ":" $2}' "$WORKDATA" > "${WORKDIR}/proxy.txt"
 
-# 10. Mở port firewalld (nếu có)
+# 9. Mở port firewalld (nếu có)
 if systemctl is-active --quiet firewalld; then
     echo "🔥 Mở port trên firewalld..."
     sudo firewall-cmd --permanent --add-port=${PORT1}/tcp || true
@@ -112,12 +103,12 @@ if systemctl is-active --quiet firewalld; then
     sudo firewall-cmd --reload || true
 fi
 
-# 11. Thêm rule iptables
+# 10. Thêm rule iptables
 echo "🛡️ Thêm rule iptables..."
 sudo iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
 sudo iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
 
-# 12. Tạo service systemd và khởi động
+# 11. Tạo service systemd và khởi động
 sudo tee /etc/systemd/system/3proxy.service > /dev/null <<EOF
 [Unit]
 Description=3proxy Proxy Server
