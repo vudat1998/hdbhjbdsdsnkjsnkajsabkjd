@@ -37,7 +37,7 @@ ID2=$(tr -dc A-Za-z0-9 </dev/urandom | head -c5)
 USER2="user${ID2}"
 PASS2="pass${ID2}"
 
-# Ghi file data.txt (user/pass/ip/port/ip)
+# Ghi file data.txt
 echo "$USER1/$PASS1/$IP4/$PORT1/$IP4" > "$WORKDATA"
 echo "$USER2/$PASS2/$IP4/$PORT2/$IP4" >> "$WORKDATA"
 
@@ -63,6 +63,8 @@ EOF
 
 # Tạo file cấu hình 3proxy.cfg
 cat <<EOF | sudo tee "$CONFIG_PATH"
+nserver 8.8.8.8
+nserver 8.8.4.4
 daemon
 maxconn 1000
 nscache 65536
@@ -97,27 +99,10 @@ echo "🛡️ Thêm rule iptables..."
 sudo iptables -I INPUT -p tcp --dport ${PORT1} -j ACCEPT
 sudo iptables -I INPUT -p tcp --dport ${PORT2} -j ACCEPT
 
-# Cập nhật file systemd
-cat <<EOF | sudo tee /etc/systemd/system/3proxy.service
-[Unit]
-Description=3proxy Proxy Server
-After=network.target
-
-[Service]
-Type=simple
-Environment=CONFIGFILE=${CONFIG_PATH}
-ExecStart=/bin/3proxy \$CONFIGFILE
-Restart=always
-RestartSec=0s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
 # Khởi động lại 3proxy
 echo "🔁 Khởi động lại 3proxy..."
 sudo systemctl daemon-reload
-sudo systemctl enable 3proxy
+sudo systemctl reset-failed 3proxy.service
 sudo systemctl restart 3proxy
 
 # Kiểm tra trạng thái
