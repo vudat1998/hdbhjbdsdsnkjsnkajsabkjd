@@ -23,12 +23,10 @@ cd /home/proxy-installer
 
 if [ ! -f /usr/local/etc/3proxy/bin/3proxy ]; then
     echo "==> Tải và cài đặt 3proxy v0.9.4"
-    echo "==> Tải và cài đặt 3proxy v0.9.5"
-    THIRD_URL="https://raw.githubusercontent.com/vudat1998/hdbhjbdsdsnkjsnkajsabkjd/main/3proxy-3proxy-0.9.5.tar.gz"
+    THIRD_URL="https://raw.githubusercontent.com/vudat1998/hdbhjbdsdsnkjsnkajsabkjd/main/3proxy-3proxy-0.9.4.tar.gz"
     wget -qO- "$THIRD_URL" | bsdtar -xvf- >/dev/null
     cd 3proxy-0.9.5
     make -f Makefile.Linux
-    make -f Makefile.Linux allplugins
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat}
     cp bin/3proxy /usr/local/etc/3proxy/bin/
     cp scripts/3proxy.service /etc/systemd/system/3proxy.service
