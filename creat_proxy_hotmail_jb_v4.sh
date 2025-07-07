@@ -3,30 +3,30 @@ set -e
 
 WORKDIR="/home/proxy-installer"
 WORKDATA="${WORKDIR}/data.txt"
-ENCODED_OUTPUT="${WORKDIR}/proxy_encoded.txt"
-RAW_OUTPUT="${WORKDIR}/proxy.txt"
+PROXY_TXT="${WORKDIR}/proxy.txt"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
+# ✅ Nhận IPv4 từ đối số
 if [ -z "$1" ]; then
-    echo "❌ Bạn phải truyền IP VPS vào! (VD: bash $0 123.123.123.123)"
+    echo "❌ Bạn phải truyền IPv4 vào! (VD: bash $0 123.123.123.123)"
     exit 1
 fi
-
 IP4="$1"
-echo "✅ Dùng IPv4: $IP4"
+echo "✅ IPv4: $IP4"
 
-# Lấy IPv6 prefix
+# ✅ Lấy IPv6 prefix
 IP6_PREFIX=$(ip -6 addr show dev eth0 | grep -oP '([0-9a-f]{1,4}:){3,6}' | head -n1)
 if [ -z "$IP6_PREFIX" ]; then
-    echo "❌ Không tìm được IPv6 prefix. Kiểm tra mạng."
+    echo "❌ Không tìm thấy IPv6 prefix. Kiểm tra mạng."
     exit 1
 fi
-
 echo "🌐 IPv6 prefix: ${IP6_PREFIX}XXXX"
 
+# ✅ Reset file tạm
 > "$WORKDATA"
+> "$PROXY_TXT"
 
 BASE_PORT=10000
 SPECIAL_CHARS='A-Za-z0-9@%&^_-+='
@@ -35,6 +35,7 @@ generate_ipv6() {
     echo "${IP6_PREFIX}$(hexdump -n 4 -e '/1 "%02X"' /dev/urandom | sed 's/../&:/g;s/:$//')"
 }
 
+# ✅ Sinh 1000 proxy
 for i in $(seq 1 1000); do
     PORT=$((BASE_PORT + i))
 
@@ -45,7 +46,7 @@ for i in $(seq 1 1000); do
     echo "$USER/$PASS/$IP4/$PORT/$IP6" >> "$WORKDATA"
 done
 
-# Ghi cấu hình 3proxy
+# ✅ Tạo cấu hình 3proxy
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
 {
   echo "daemon"
@@ -71,21 +72,14 @@ CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
 
 chmod 644 "$CONFIG_PATH"
 
-# Tạo proxy.txt (raw) và proxy_encoded.txt
-> "$RAW_OUTPUT"
-> "$ENCODED_OUTPUT"
-
+# ✅ Xuất proxy.txt đã mã hóa URL
 while IFS="/" read -r USER PASS IP PORT IP6; do
-    echo "$IP:$PORT:$USER:$PASS" >> "$RAW_OUTPUT"
-    
-    # Encode USER/PASS
     USER_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
     PASS_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
-
-    echo "http://${USER_ENC}:${PASS_ENC}@${IP}:${PORT}" >> "$ENCODED_OUTPUT"
+    echo "http://${USER_ENC}:${PASS_ENC}@${IP}:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
-# Mở firewall
+# ✅ Mở port nếu có firewalld
 if systemctl is-active --quiet firewalld; then
     echo "🔥 Mở port trong firewalld..."
     for i in $(seq 1 1000); do
@@ -95,21 +89,19 @@ if systemctl is-active --quiet firewalld; then
     firewall-cmd --reload || true
 fi
 
-# iptables fallback
-echo "🛡️  Thêm iptables rules..."
+# ✅ Mở port bằng iptables
+echo "🛡️  Thêm rule iptables..."
 for i in $(seq 1 1000); do
     PORT=$((BASE_PORT + i))
     iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
 done
 
-# Restart 3proxy
+# ✅ Restart 3proxy
 echo "🔁 Khởi động lại 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
 
-echo "✅ Đã tạo xong 1000 proxy hỗn hợp IPv4/IPv6!"
-
-echo "📦 proxy.txt (raw): $RAW_OUTPUT"
-echo "🔐 proxy_encoded.txt (URL dùng được): $ENCODED_OUTPUT"
-cat "$ENCODED_OUTPUT" | head -n 5
+echo "✅ Tạo 1000 proxy hỗn hợp IPv4/IPv6 thành công!"
+echo "📄 File proxy: $PROXY_TXT"
+cat "$PROXY_TXT" | head -n 5
