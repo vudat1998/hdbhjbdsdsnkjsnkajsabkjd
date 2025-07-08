@@ -80,7 +80,7 @@ done < "$WORKDATA"
 # ✅ Mở port nếu có firewalld
 if systemctl is-active --quiet firewalld; then
     echo "🔥 Mở port trong firewalld..."
-    for i in $(seq 1 1000); do
+    for i in $(seq 1 10); do
         PORT=$((BASE_PORT + i))
         firewall-cmd --permanent --add-port=${PORT}/tcp || true
     done
@@ -89,7 +89,7 @@ fi
 
 # ✅ Mở port bằng iptables
 echo "🛡️  Thêm rule iptables..."
-for i in $(seq 1 1000); do
+for i in $(seq 1 10); do
     PORT=$((BASE_PORT + i))
     iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
 done
