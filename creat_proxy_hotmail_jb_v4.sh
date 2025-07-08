@@ -8,7 +8,6 @@ PROXY_TXT="${WORKDIR}/proxy.txt"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-
 # ✅ Nhận IPv4 và IPv6 prefix từ đối số
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "❌ Bạn phải truyền IPv4 và IPv6 prefix vào!"
@@ -22,13 +21,12 @@ IP6_PREFIX="$2"
 echo "✅ IPv4: $IP4"
 echo "🌐 IPv6 prefix: ${IP6_PREFIX}::/64"
 
-
 # ✅ Reset file tạm
 > "$WORKDATA"
 > "$PROXY_TXT"
 
 BASE_PORT=10000
-SPECIAL_CHARS='A-Za-z0-9@%&^_-+='
+SPECIAL_CHARS='A-Za-z0-9@%&^_+=-'  # ✅ ĐÃ SỬA lỗi tr
 
 generate_ipv6() {
     r1=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
@@ -79,7 +77,6 @@ chmod 644 "$CONFIG_PATH"
 while IFS="/" read -r USER PASS IP PORT IP6; do
     USER_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
     PASS_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
-
     echo "http://${USER_ENC}:${PASS_ENC}@${IP}:${PORT}" >> "$PROXY_TXT"
     echo "http://${USER_ENC}:${PASS_ENC}@[${IP6}]:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
