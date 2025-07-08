@@ -45,8 +45,21 @@ generate_ipv6() {
 # --- Tạo proxy ---
 for i in $(seq 1 "$COUNT"); do
   PORT=$((BASE_PORT + i - 1))
-  USER=$(tr -dc A-Za-z0-9 </dev/urandom | head -c8)
-  PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
+
+  # Tạo user có ít nhất 1 ký tự đặc biệt
+  while true; do
+    USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
+    SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
+    USER="${USER_RAW}${SPECIAL}"
+    [[ "$USER" =~ [@%&^_+-] ]] && break
+  done
+
+  # Tạo pass có ít nhất 1 ký tự đặc biệt
+  while true; do
+    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
+    [[ "$PASS" =~ [@%&^_+-] ]] && break
+  done
+
   IP6=$(generate_ipv6)
 
   # Gán IPv6 vào interface nếu chưa có
@@ -54,6 +67,7 @@ for i in $(seq 1 "$COUNT"); do
 
   echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
 done
+
 
 # --- Tạo cấu hình 3proxy ---
 {
