@@ -41,6 +41,9 @@ for i in $(seq 1 10); do
     IP6=$(generate_ipv6)
 
     echo "$USER/$PASS/$IP4/$PORT/$IP6" >> "$WORKDATA"
+    
+    # 🧠 Gán IPv6 vào interface để 3proxy sử dụng được
+    ip -6 addr add ${IP6}/64 dev eth0 || true
 done
 
 # ✅ Tạo cấu hình 3proxy
