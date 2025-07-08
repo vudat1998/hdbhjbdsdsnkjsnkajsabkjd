@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# --- Kiểm tra 3proxy đã cài đặt chưa ---
+if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
+  echo "❌ 3proxy không được cài đặt ở /usr/local/etc/3proxy/bin/3proxy."
+  echo "Chạy script cài đặt 3proxy trước khi tiếp tục."
+  exit 1
+fi
+
 # --- CẤU HÌNH ĐẦU VÀO ---
 if [ -z "$1" ] || [ -z "$2" ]; then
   echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
@@ -18,7 +25,7 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="$WORKDIR/data.txt"
 PROXY_TXT="$WORKDIR/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
-LOG_PATH="/var/log/3proxy.log"
+LOG_PATH="/usr/local/etc/3proxy/logs/3proxy.log"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
@@ -34,7 +41,7 @@ echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Kiểm tra IPv6 có hoạt động không ---
 if ! ping6 -c 1 google.com &>/dev/null; then
-  echo "⚠️ IPv6 không hoạt động. Kiểm tra cấu hình mạng hoặc liên hệ nhà cung cấp."
+  echo "⚠️ IPv6 không hoạt động. Kiểm tra cấu hình mạng hoặc liên hệ nhà cung cấp (Vultr)."
   exit 1
 fi
 
@@ -120,8 +127,10 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
+Environment=CONFIGFILE=/usr/local/etc/3proxy/3proxy.cfg
+ExecStart=/usr/local/etc/3proxy/bin/3proxy \$CONFIGFILE
 Restart=always
+RestartSec=0
 KillMode=process
 
 [Install]
@@ -146,6 +155,14 @@ echo "🔁 Restart 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
+
+# --- Kiểm tra trạng thái 3proxy ---
+if systemctl is-active --quiet 3proxy; then
+  echo "✅ Dịch vụ 3proxy đang chạy."
+else
+  echo "❌ Dịch vụ 3proxy không chạy. Kiểm tra log bằng: journalctl -u 3proxy"
+  exit 1
+fi
 
 # --- Xuất proxy.txt (chỉ với IPv4) ---
 while IFS="/" read -r USER PASS IP4 PORT IP6; do
