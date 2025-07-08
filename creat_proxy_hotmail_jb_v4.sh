@@ -29,11 +29,7 @@ BASE_PORT=10000
 SPECIAL_CHARS='A-Za-z0-9@%&^_+=-'  # ✅ ĐÃ SỬA lỗi tr
 
 generate_ipv6() {
-    r1=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
-    r2=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
-    r3=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
-    r4=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
-    echo "${IP6_PREFIX}:${r1}:${r2}:${r3}:${r4}"
+    echo "${IP6_PREFIX}:$(xxd -l 8 -p /dev/urandom | sed 's/../&:/g; s/:$//; s/\(..\):\(..\)/\1\2/g')"
 }
 
 # ✅ Sinh 1000 proxy
