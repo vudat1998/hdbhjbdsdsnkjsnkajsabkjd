@@ -63,7 +63,8 @@ done
   # users
   echo -n "users "
   awk -F "/" '{ printf "%s:CL:%s ", $1, $2 }' "$WORKDATA"
-  echo ""  # <- 🔧 Sửa lỗi thiếu dòng này
+  echo ""
+  
   echo "auth strong"
 
   # rules
