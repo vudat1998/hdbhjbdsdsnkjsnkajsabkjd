@@ -33,7 +33,7 @@ fi
 # --- CẤU HÌNH ĐẦU VÀO ---
 if [ -z "$1" ] || [ -z "$2" ]; then
   echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
-  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:0c3a 30000 10"
+  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:c3a 30000 10"
   exit 1
 fi
 
@@ -47,11 +47,14 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="$WORKDIR/data.txt"
 PROXY_TXT="$WORKDIR/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
+LOG_PATH="/var/log/3proxy.log"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 > "$WORKDATA"
 > "$PROXY_TXT"
+sudo touch "$LOG_PATH"
+sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
 CHARS='A-Za-z0-9@%&^_+-'
@@ -93,7 +96,7 @@ for i in $(seq 1 "$COUNT"); do
 
   # Gán IPv6 vào interface nếu chưa có
   if ! ip -6 addr show dev "$NET_IF" | grep -q "${IP6}/64"; then
-    ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
+    sudo ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
       echo "⚠️ Không thể gán IPv6: $IP6, tiếp tục với IPv4..."
     }
   fi
@@ -103,6 +106,8 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
+  echo "log $LOG_PATH D"
+  echo "logformat \"L%t %U %C %R %c %r %T\""
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
@@ -124,11 +129,11 @@ done
   awk -F "/" '{
     u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
     print "allow " u
-    print "proxy -n -a -p" port " -i0.0.0.0 -i:: -e" ip4 " -e" ip6
+    print "proxy -6 -n -a -p" port " -i:: -i0.0.0.0 -e" ip6 " -e" ip4
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
-chmod 644 "$CONFIG_PATH"
+sudo chmod 644 "$CONFIG_PATH"
 
 # --- Sửa file dịch vụ systemd ---
 cat << EOF > /etc/systemd/system/3proxy.service
