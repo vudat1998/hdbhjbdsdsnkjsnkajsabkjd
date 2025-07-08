@@ -51,13 +51,13 @@ for i in $(seq 1 "$COUNT"); do
     USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
     SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
-    [[ "$USER" =~ [@%&^_+-] ]] && break
+    echo "$USER" | grep -q '[@%&^_+-]' && break
   done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
   while true; do
     PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
-    [[ "$PASS" =~ [@%&^_+-] ]] && break
+    echo "$PASS" | grep -q '[@%&^_+-]' && break
   done
 
   IP6=$(generate_ipv6)
