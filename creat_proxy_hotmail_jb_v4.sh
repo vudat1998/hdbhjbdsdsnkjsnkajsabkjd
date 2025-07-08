@@ -26,24 +26,26 @@ echo "🌐 IPv6 prefix: ${IP6_PREFIX}::/64"
 > "$PROXY_TXT"
 
 BASE_PORT=10000
-SPECIAL_CHARS='A-Za-z0-9@%&^_+=-'  # ✅ ĐÃ SỬA lỗi tr
+NUM_PROXIES=10
+SPECIAL_CHARS='A-Za-z0-9@%&^_+=-'
+
+# ✅ Lấy tên interface có IPv4 public
+NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
+echo "🔍 Interface mạng: $NET_IF"
 
 generate_ipv6() {
     echo "${IP6_PREFIX}:$(xxd -l 8 -p /dev/urandom | sed 's/../&:/g; s/:$//; s/\(..\):\(..\)/\1\2/g')"
 }
 
-# ✅ Sinh 1000 proxy
-for i in $(seq 1 10); do
+# ✅ Sinh proxy
+for i in $(seq 1 $NUM_PROXIES); do
     PORT=$((BASE_PORT + i))
-
     USER=$(tr -dc "$SPECIAL_CHARS" </dev/urandom | head -c8)
     PASS=$(tr -dc "$SPECIAL_CHARS" </dev/urandom | head -c10)
     IP6=$(generate_ipv6)
 
+    ip -6 addr add ${IP6}/64 dev $NET_IF || true
     echo "$USER/$PASS/$IP4/$PORT/$IP6" >> "$WORKDATA"
-    
-    # 🧠 Gán IPv6 vào interface để 3proxy sử dụng được
-    ip -6 addr add ${IP6}/64 dev eth0 || true
 done
 
 # ✅ Tạo cấu hình 3proxy
@@ -56,13 +58,10 @@ CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
   echo "setgid 65535"
   echo "setuid 65535"
   echo "flush"
-
   echo -n "users "
   awk -F "/" '{printf "%s:CL:%s ", $1, $2}' "$WORKDATA"
   echo ""
-
   echo "auth strong"
-
   awk -F "/" '{
     print "allow " $1
     print "proxy -n -a -p" $4 " -i" $3 " -e" $3
@@ -80,10 +79,10 @@ while IFS="/" read -r USER PASS IP PORT IP6; do
     echo "http://${USER_ENC}:${PASS_ENC}@[${IP6}]:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
-# ✅ Mở port nếu có firewalld
+# ✅ Mở port firewall nếu có firewalld
 if systemctl is-active --quiet firewalld; then
     echo "🔥 Mở port trong firewalld..."
-    for i in $(seq 1 10); do
+    for i in $(seq 1 $NUM_PROXIES); do
         PORT=$((BASE_PORT + i))
         firewall-cmd --permanent --add-port=${PORT}/tcp || true
     done
@@ -92,18 +91,19 @@ fi
 
 # ✅ Mở port bằng iptables
 echo "🛡️  Thêm rule iptables..."
-for i in $(seq 1 10); do
+for i in $(seq 1 $NUM_PROXIES); do
     PORT=$((BASE_PORT + i))
-    iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
+    iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT || true
+    ip6tables -I INPUT -p tcp --dport ${PORT} -j ACCEPT || true
 done
 
-# ✅ Restart 3proxy
+# ✅ Khởi động lại 3proxy
 echo "🔁 Khởi động lại 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
 
-echo "✅ Tạo 1000 proxy hỗn hợp IPv4/IPv6 thành công!"
+echo "✅ Tạo ${NUM_PROXIES} proxy hỗn hợp IPv4/IPv6 thành công!"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT" | head -n 5
 echo "Install Done"
