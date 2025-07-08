@@ -18,6 +18,7 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="$WORKDIR/data.txt"
 PROXY_TXT="$WORKDIR/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
+LOG_PATH="/var/log/3proxy.log"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
@@ -30,6 +31,12 @@ CHARS='A-Za-z0-9@%&^_+-'
 # --- Tìm interface mạng chính ---
 NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
+
+# --- Kiểm tra IPv6 có hoạt động không ---
+if ! ping6 -c 1 google.com &>/dev/null; then
+  echo "⚠️ IPv6 không hoạt động. Kiểm tra cấu hình mạng hoặc liên hệ nhà cung cấp."
+  exit 1
+fi
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
@@ -63,7 +70,12 @@ for i in $(seq 1 "$COUNT"); do
   IP6=$(generate_ipv6)
 
   # Gán IPv6 vào interface nếu chưa có
-  ip -6 addr add "${IP6}/64" dev "$NET_IF" || true
+  if ! ip -6 addr show dev "$NET_IF" | grep -q "${IP6}/64"; then
+    ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
+      echo "⚠️ Không thể gán IPv6: $IP6"
+      continue
+    }
+  fi
 
   echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
 done
@@ -77,6 +89,8 @@ done
   echo "setgid 65535"
   echo "setuid 65535"
   echo "flush"
+  echo "log $LOG_PATH"
+  echo "logformat \"L%t.%ms %N.%p %E %U %C:%c %R:%r %O %I %h %T\""
 
   # users
   echo -n "users "
@@ -98,6 +112,22 @@ done
 
 chmod 644 "$CONFIG_PATH"
 
+# --- Sửa file dịch vụ systemd ---
+cat << EOF > /etc/systemd/system/3proxy.service
+[Unit]
+Description=3proxy Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
+Restart=always
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # --- Mở firewall và iptables ---
 if systemctl is-active --quiet firewalld; then
   for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
@@ -117,15 +147,14 @@ systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
 
-# --- Xuất proxy.txt ---
+# --- Xuất proxy.txt (chỉ với IPv4) ---
 while IFS="/" read -r USER PASS IP4 PORT IP6; do
   UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
   PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
   echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
-  echo "http://${UE}:${PE}@[${IP6}]:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
 echo "✅ Đã tạo $COUNT proxy IPv4 + IPv6, mỗi proxy dùng port riêng từ $BASE_PORT"
 echo "📄 File proxy: $PROXY_TXT"
-head -n "$((COUNT * 2))" "$PROXY_TXT"
+cat "$PROXY_TXT"
 echo "Install Done"
