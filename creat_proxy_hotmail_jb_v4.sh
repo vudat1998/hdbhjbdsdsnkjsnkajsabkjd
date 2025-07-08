@@ -3,17 +3,17 @@ set -e
 
 # --- Kiểm tra 3proxy đã cài đặt chưa ---
 if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
-  echo "❌ 3proxy không được cài đặt ở /usr/localEtc/3proxy/bin/3proxy."
+  echo "❌ 3proxy không được cài đặt ở /usr/local/etc/3proxy/bin/3proxy."
   echo "Chạy script cài đặt 3proxy trước khi tiếp tục."
   exit 1
 fi
 
-# --- Kiểm tra ulimits ---
-if [ $(ulimit -n) -lt 20000 ]; then
-  echo "⚠️ ulimits quá thấp ($(ulimit -n)). Yêu cầu tối thiểu 20000."
-  echo "Tăng ulimits bằng: echo -e '* soft nofile 20000\n* hard nofile 524288' | sudo tee -a /etc/security/limits.conf"
-  exit 1
-fi
+# # --- Kiểm tra ulimits ---
+# if [ $(ulimit -n) -lt 2000 ]; then
+#   echo "⚠️ ulimits quá thấp ($(ulimit -n)). Yêu cầu tối thiểu 2000."
+#   echo "Tăng ulimits bằng: echo -e '* soft nofile 2000\n* hard nofile 4096' | sudo tee -a /etc/security/limits.conf"
+#   exit 1
+# fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
 if [ -z "$1" ] || [ -z "$2" ]; then
@@ -95,7 +95,7 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
-  echo "maxconn 10000"
+  echo "maxconn 1000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
   echo "setgid 65535"
