@@ -3,8 +3,15 @@ set -e
 
 # --- Kiểm tra 3proxy đã cài đặt chưa ---
 if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
-  echo "❌ 3proxy không được cài đặt ở /usr/local/etc/3proxy/bin/3proxy."
+  echo "❌ 3proxy không được cài đặt ở /usr/localEtc/3proxy/bin/3proxy."
   echo "Chạy script cài đặt 3proxy trước khi tiếp tục."
+  exit 1
+fi
+
+# --- Kiểm tra ulimits ---
+if [ $(ulimit -n) -lt 20000 ]; then
+  echo "⚠️ ulimits quá thấp ($(ulimit -n)). Yêu cầu tối thiểu 20000."
+  echo "Tăng ulimits bằng: echo -e '* soft nofile 20000\n* hard nofile 524288' | sudo tee -a /etc/security/limits.conf"
   exit 1
 fi
 
@@ -25,7 +32,6 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="$WORKDIR/data.txt"
 PROXY_TXT="$WORKDIR/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
-LOG_PATH="/usr/local/etc/3proxy/logs/3proxy.log"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
@@ -89,10 +95,11 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
-  echo "daemon"
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
+  echo "setgid 65535"
+  echo "setuid 65535"
   echo "flush"
 
   # users
@@ -126,7 +133,7 @@ Type=simple
 Environment=CONFIGFILE=/usr/local/etc/3proxy/3proxy.cfg
 ExecStart=/usr/local/etc/3proxy/bin/3proxy \$CONFIGFILE
 Restart=always
-RestartSec=0
+RestartSec=1
 KillMode=process
 
 [Install]
