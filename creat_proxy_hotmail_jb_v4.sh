@@ -8,21 +8,20 @@ PROXY_TXT="${WORKDIR}/proxy.txt"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-# ✅ Nhận IPv4 từ đối số
-if [ -z "$1" ]; then
-    echo "❌ Bạn phải truyền IPv4 vào! (VD: bash $0 123.123.123.123)"
-    exit 1
-fi
-IP4="$1"
-echo "✅ IPv4: $IP4"
 
-# ✅ Lấy IPv6 prefix
-IP6_PREFIX=$(ip -6 addr show dev eth0 | grep -oP '([0-9a-f]{1,4}:){3,6}' | head -n1)
-if [ -z "$IP6_PREFIX" ]; then
-    echo "❌ Không tìm thấy IPv6 prefix. Kiểm tra mạng."
+# ✅ Nhận IPv4 và IPv6 prefix từ đối số
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "❌ Bạn phải truyền IPv4 và IPv6 prefix vào!"
+    echo "   Cú pháp: bash $0 <IPv4> <IPv6_PREFIX>"
+    echo "   VD: bash $0 103.123.123.123 2a01:4f8:1c1a:abcd"
     exit 1
 fi
-echo "🌐 IPv6 prefix: ${IP6_PREFIX}XXXX"
+
+IP4="$1"
+IP6_PREFIX="$2"
+echo "✅ IPv4: $IP4"
+echo "🌐 IPv6 prefix: ${IP6_PREFIX}::/64"
+
 
 # ✅ Reset file tạm
 > "$WORKDATA"
@@ -32,7 +31,11 @@ BASE_PORT=10000
 SPECIAL_CHARS='A-Za-z0-9@%&^_-+='
 
 generate_ipv6() {
-    echo "${IP6_PREFIX}$(hexdump -n 4 -e '/1 "%02X"' /dev/urandom | sed 's/../&:/g;s/:$//')"
+    r1=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
+    r2=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
+    r3=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
+    r4=$(hexdump -n 2 -e '/1 "%04X"' /dev/urandom)
+    echo "${IP6_PREFIX}:${r1}:${r2}:${r3}:${r4}"
 }
 
 # ✅ Sinh 1000 proxy
@@ -76,7 +79,9 @@ chmod 644 "$CONFIG_PATH"
 while IFS="/" read -r USER PASS IP PORT IP6; do
     USER_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
     PASS_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
+
     echo "http://${USER_ENC}:${PASS_ENC}@${IP}:${PORT}" >> "$PROXY_TXT"
+    echo "http://${USER_ENC}:${PASS_ENC}@[${IP6}]:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
 # ✅ Mở port nếu có firewalld
