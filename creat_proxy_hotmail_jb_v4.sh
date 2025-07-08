@@ -49,17 +49,6 @@ CHARS='A-Za-z0-9@%&^_+-'
 NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
-# --- Kiểm tra IPv6 có hoạt động không ---
-if ! ip -6 addr show dev "$NET_IF" | grep -q "$IPV6_PREFIX"; then
-  echo "⚠️ Địa chỉ IPv6 $IPV6_PREFIX không được gán trên interface $NET_IF."
-  echo "Kiểm tra dải IPv6 trong bảng điều khiển Vultr hoặc liên hệ nhà cung cấp."
-  exit 1
-fi
-if ! ping6 -c 1 google.com &>/dev/null; then
-  echo "⚠️ IPv6 không hoạt động (ping google.com thất bại). Kiểm tra cấu hình mạng hoặc liên hệ Vultr."
-  exit 1
-fi
-
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
 
@@ -94,8 +83,7 @@ for i in $(seq 1 "$COUNT"); do
   # Gán IPv6 vào interface nếu chưa có
   if ! ip -6 addr show dev "$NET_IF" | grep -q "${IP6}/64"; then
     ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
-      echo "⚠️ Không thể gán IPv6: $IP6"
-      continue
+      echo "⚠️ Không thể gán IPv6: $IP6, tiếp tục với IPv4..."
     }
   fi
 
