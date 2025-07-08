@@ -7,7 +7,7 @@ WORKDATA="${WORKDIR}/data.txt"
 PROXY_TXT="${WORKDIR}/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
 BASE_PORT=10000
-NUM_PROXIES=1000         # Số proxy cần sinh
+NUM_PROXIES=10         # Số proxy cần sinh
 SPECIAL_CHARS='A-Za-z0-9@%&^_+='
 
 # --- Tạo thư mục & chuyển vào ---
