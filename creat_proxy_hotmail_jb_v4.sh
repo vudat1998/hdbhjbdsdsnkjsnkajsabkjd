@@ -68,7 +68,6 @@ for i in $(seq 1 "$COUNT"); do
   echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
 done
 
-
 # --- Tạo cấu hình 3proxy ---
 {
   echo "daemon"
@@ -93,9 +92,7 @@ done
   awk -F "/" '{
     u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
     print "allow " u
-    print "proxy -n -a -p" port " -i" ip4 " -e" ip4
-    print "allow " u
-    print "proxy -6 -n -a -p" port " -i" ip6 " -e" ip6 ""
+    print "proxy -n -a -p" port " -i0.0.0.0 -i:: -e" ip4 " -e" ip6
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
