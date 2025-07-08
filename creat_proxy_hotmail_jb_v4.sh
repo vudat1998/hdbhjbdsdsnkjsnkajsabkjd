@@ -33,7 +33,7 @@ generate_ipv6() {
 }
 
 # ✅ Sinh 1000 proxy
-for i in $(seq 1 1000); do
+for i in $(seq 1 100); do
     PORT=$((BASE_PORT + i))
 
     USER=$(tr -dc "$SPECIAL_CHARS" </dev/urandom | head -c8)
