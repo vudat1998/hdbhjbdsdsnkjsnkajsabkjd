@@ -29,28 +29,28 @@ CHARS='A-Za-z0-9@%&^_+=-'
 
 # --- Tìm interface mạng chính ---
 NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
+echo "✅ Sử dụng interface: $NET_IF"
 
-# --- Hàm sinh IPv6 đúng chuẩn ---
+# --- Hàm sinh IPv6 ngẫu nhiên ---
 generate_ipv6() {
   echo "${IPV6_PREFIX}:$(xxd -l 8 -p /dev/urandom \
     | sed 's/../&:/g; s/:$//; s/\(..\):\(..\)/\1\2/g')"
 }
 
-# --- Sinh N proxy: mỗi line = user/pass/ipv4/port/ipv6 ---
+# --- Tạo proxy ---
 for i in $(seq 1 "$COUNT"); do
   PORT=$((BASE_PORT + i - 1))
   USER=$(tr -dc A-Za-z0-9 </dev/urandom | head -c8)
   PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
   IP6=$(generate_ipv6)
 
-  # Gán IPv6 vào interface (nếu chưa có)
+  # Gán IPv6 vào interface nếu chưa có
   ip -6 addr add "${IP6}/64" dev "$NET_IF" || true
 
-  # Lưu tạm vào data.txt
   echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
 done
 
-# --- Tạo config 3proxy ---
+# --- Tạo cấu hình 3proxy ---
 {
   echo "daemon"
   echo "maxconn 10000"
@@ -59,58 +59,53 @@ done
   echo "setgid 65535"
   echo "setuid 65535"
   echo "flush"
+
   # users
   echo -n "users "
   awk -F "/" '{ printf "%s:CL:%s ", $1, $2 }' "$WORKDATA"
-  echo ""
+  echo ""  # <- 🔧 Sửa lỗi thiếu dòng này
   echo "auth strong"
-  # rules cho mỗi proxy
+
+  # rules
   awk -F "/" '{
     u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
-    # IPv4 listen
     print "allow " u
     print "proxy -n -a -p" port " -i" ip4 " -e" ip4
-    # IPv6 listen (cùng port)
     print "allow " u
     print "proxy -6 -n -a -p" port " -i[" ip6 "] -e[" ip6 "]"
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
+
 chmod 644 "$CONFIG_PATH"
 
-# --- Mở cổng cho cả IPv4 & IPv6 ---
+# --- Mở firewall và iptables ---
 if systemctl is-active --quiet firewalld; then
   for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
     firewall-cmd --permanent --add-port=${port}/tcp || true
   done
   firewall-cmd --reload || true
 fi
+
 for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
-  iptables  -I INPUT -p tcp --dport ${port} -j ACCEPT || true
+  iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
   ip6tables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
 done
 
-# --- Restart 3proxy ---
+# --- Khởi động lại 3proxy ---
+echo "🔁 Restart 3proxy..."
 systemctl daemon-reload
 systemctl enable 3proxy
 systemctl restart 3proxy
 
 # --- Xuất proxy.txt ---
 while IFS="/" read -r USER PASS IP4 PORT IP6; do
-  UE=$(python3 - <<EOF
-import urllib.parse
-print(urllib.parse.quote("$USER"))
-EOF
-  )
-  PE=$(python3 - <<EOF
-import urllib.parse
-print(urllib.parse.quote("$PASS"))
-EOF
-  )
+  UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
+  PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
   echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
   echo "http://${UE}:${PE}@[${IP6}]:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
-echo "✅ Đã tạo $COUNT proxy (IPv4+IPv6) trên các port từ $BASE_PORT đến $((BASE_PORT+COUNT-1))"
+echo "✅ Đã tạo $COUNT proxy IPv4 + IPv6, mỗi proxy dùng port riêng từ $BASE_PORT"
 echo "📄 File proxy: $PROXY_TXT"
-head -n "$COUNT" "$PROXY_TXT"
+head -n "$((COUNT * 2))" "$PROXY_TXT"
 echo "Install Done"
