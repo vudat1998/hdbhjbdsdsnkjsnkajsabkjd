@@ -110,4 +110,4 @@ systemctl restart 3proxy
 echo "✅ Tạo 1000 proxy hỗn hợp IPv4/IPv6 thành công!"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT" | head -n 5
-
+echo "Install Done"
