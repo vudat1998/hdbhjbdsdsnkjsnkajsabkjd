@@ -8,12 +8,16 @@ if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
   exit 1
 fi
 
-# # --- Kiểm tra ulimits ---
-# if [ $(ulimit -n) -lt 2000 ]; then
-#   echo "⚠️ ulimits quá thấp ($(ulimit -n)). Yêu cầu tối thiểu 2000."
-#   echo "Tăng ulimits bằng: echo -e '* soft nofile 2000\n* hard nofile 4096' | sudo tee -a /etc/security/limits.conf"
-#   exit 1
-# fi
+# --- Tăng ulimits nếu cần ---
+CURRENT_ULIMIT=$(ulimit -n)
+if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
+  echo "⚠️ ulimits quá thấp ($CURRENT_ULIMIT). Tăng lên 524288..."
+  echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
+  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/system.conf
+  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/user.conf
+  sudo systemctl daemon-reexec
+  ulimit -n 524288
+fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
 if [ -z "$1" ] || [ -z "$2" ]; then
@@ -46,8 +50,13 @@ NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Kiểm tra IPv6 có hoạt động không ---
+if ! ip -6 addr show dev "$NET_IF" | grep -q "$IPV6_PREFIX"; then
+  echo "⚠️ Địa chỉ IPv6 $IPV6_PREFIX không được gán trên interface $NET_IF."
+  echo "Kiểm tra dải IPv6 trong bảng điều khiển Vultr hoặc liên hệ nhà cung cấp."
+  exit 1
+fi
 if ! ping6 -c 1 google.com &>/dev/null; then
-  echo "⚠️ IPv6 không hoạt động. Kiểm tra cấu hình mạng hoặc liên hệ nhà cung cấp (Vultr)."
+  echo "⚠️ IPv6 không hoạt động (ping google.com thất bại). Kiểm tra cấu hình mạng hoặc liên hệ Vultr."
   exit 1
 fi
 
@@ -95,7 +104,7 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
-  echo "maxconn 1000"
+  echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
   echo "setgid 65535"
