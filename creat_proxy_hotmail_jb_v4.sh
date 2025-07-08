@@ -25,7 +25,7 @@ cd "$WORKDIR"
 > "$PROXY_TXT"
 
 # --- Ký tự hợp lệ cho user/pass ---
-CHARS='A-Za-z0-9@%&^_+=-'
+CHARS='A-Za-z0-9@%&^_+-'
 
 # --- Tìm interface mạng chính ---
 NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
