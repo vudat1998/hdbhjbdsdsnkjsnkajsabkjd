@@ -93,11 +93,7 @@ done
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
-  echo "setgid 65535"
-  echo "setuid 65535"
   echo "flush"
-  echo "log $LOG_PATH"
-  echo "logformat \"L%t.%ms %N.%p %E %U %C:%c %R:%r %O %I %h %T\""
 
   # users
   echo -n "users "
