@@ -13,10 +13,21 @@ CURRENT_ULIMIT=$(ulimit -n)
 if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   echo "⚠️ ulimits quá thấp ($CURRENT_ULIMIT). Tăng lên 524288..."
   echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
-  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/system.conf
-  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/user.conf
+  # Xóa các dòng DefaultLimitNOFILE cũ để tránh xung đột
+  sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/system.conf
+  sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/user.conf
+  # Thêm dòng mới với cú pháp đúng
+  echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/system.conf
+  echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/user.conf
   sudo systemctl daemon-reexec
   ulimit -n 524288
+  NEW_ULIMIT=$(ulimit -n)
+  if [ "$NEW_ULIMIT" -lt 20000 ]; then
+    echo "❌ Không thể đặt ulimits thành 524288 (hiện tại: $NEW_ULIMIT)."
+    echo "Hãy đăng xuất và đăng nhập lại, hoặc chạy 'sudo reboot' và thử lại."
+    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $BASE_PORT $COUNT"
+    exit 1
+  fi
 fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
