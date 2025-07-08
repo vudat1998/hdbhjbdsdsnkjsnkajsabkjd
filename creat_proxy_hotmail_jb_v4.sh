@@ -31,10 +31,15 @@ CHARS='A-Za-z0-9@%&^_+-'
 NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
-# --- Hàm sinh IPv6 ngẫu nhiên ---
+# --- Mảng hex và hàm sinh đoạn IPv6 ---
+array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
+
+ip64() {
+  echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
+}
+
 generate_ipv6() {
-  echo "${IPV6_PREFIX}:$(xxd -l 8 -p /dev/urandom \
-    | sed 's/../&:/g; s/:$//; s/\(..\):\(..\)/\1\2/g')"
+  echo "$IPV6_PREFIX:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
 
 # --- Tạo proxy ---
@@ -62,7 +67,10 @@ done
 
   # users
   echo -n "users "
-  awk -F "/" '{ printf "%s:CL:%s ", $1, $2 }' "$WORKDATA"
+  awk -F "/" '{
+    gsub(/[:\\]/, "\\\\&", $2);  # escape `:` và `\`
+    printf "%s:CL:%s ", $1, $2
+  }' "$WORKDATA"
   echo ""
   
   echo "auth strong"
@@ -73,7 +81,7 @@ done
     print "allow " u
     print "proxy -n -a -p" port " -i" ip4 " -e" ip4
     print "allow " u
-    print "proxy -6 -n -a -p" port " -i[" ip6 "] -e[" ip6 "]"
+    print "proxy -6 -n -a -p" port " -i" ip6 " -e" ip6 ""
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
