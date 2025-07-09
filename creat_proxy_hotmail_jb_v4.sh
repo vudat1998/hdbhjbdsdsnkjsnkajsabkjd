@@ -8,12 +8,12 @@ if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
   exit 1
 fi
 
-# --- Kiểm tra tài nguyên hệ thống ---
-MEM_AVAILABLE=$(free -m | awk '/Mem:/ {print $7}')
-if [ "$MEM_AVAILABLE" -lt 500 ]; then
-  echo "⚠️ Bộ nhớ khả dụng thấp ($MEM_AVAILABLE MB). Cần ít nhất 500 MB để chạy ổn định."
-  exit 1
-fi
+# # --- Kiểm tra tài nguyên hệ thống ---
+# MEM_AVAILABLE=$(free -m | awk '/Mem:/ {print $7}')
+# if [ "$MEM_AVAILABLE" -lt 500 ]; then
+#   echo "⚠️ Bộ nhớ khả dụng thấp ($MEM_AVAILABLE MB). Cần ít nhất 500 MB để chạy ổn định."
+#   exit 1
+# fi
 
 # --- Tăng ulimits nếu cần ---
 CURRENT_ULIMIT=$(ulimit -n)
