@@ -1,23 +1,11 @@
 #!/bin/bash
 set -e
 
-# --- Kiểm tra và cài đặt dependencies ---
-echo "==> Cài đặt dependencies với dnf"
-dnf install -y gcc make wget bsdtar zip epel-release iproute iptables iptables-services firewalld policycoreutils-python-utils curl
-
 # --- Bật firewalld nếu chưa bật ---
 if ! systemctl is-active --quiet firewalld; then
     echo "==> Bật và khởi động firewalld"
     systemctl enable firewalld
     systemctl start firewalld
-fi
-
-# --- Kiểm tra và tắt SELinux nếu cần ---
-SELINUX_STATUS=$(getenforce)
-if [ "$SELINUX_STATUS" == "Enforcing" ]; then
-    echo "==> SELinux đang ở Enforcing – chuyển thành Permissive"
-    setenforce 0
-    sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 fi
 
 # --- Tăng ulimits nếu cần ---
