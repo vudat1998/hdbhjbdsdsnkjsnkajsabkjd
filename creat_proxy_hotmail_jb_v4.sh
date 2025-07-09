@@ -103,7 +103,7 @@ done
 echo "==> Tạo $IPV6_COUNT proxy IPv6..."
 IPV6_LAST_PORT=$((IPV6_BASE_PORT + IPV6_COUNT - 1))
 seq "$IPV6_BASE_PORT" "$IPV6_LAST_PORT" | while read -r port; do
-    echo "usr$(random)/pass$(random)/-/$port/$(gen64 "$IPV6_PREFIX")" >> "$WORKDATA"
+    echo "usr$(random)/pass$(random)/$IPV4/$port/$(gen64 "$IPV6_PREFIX")" >> "$WORKDATA"
 done
 
 # --- Tạo script thêm/xóa IPv6 ---
@@ -166,8 +166,8 @@ echo "==> Tạo file cấu hình 3proxy..."
     echo ""
     echo "auth strong"
     echo "allow *"
-    awk -F "/" '$3 != "-" {print "proxy -n -a -p"$4" -i"$3" -e"$3}' "$WORKDATA"
-    awk -F "/" '$5 != "-" {print "proxy -6 -n -a -p"$4" -i"$5" -e"$5}' "$WORKDATA"
+    awk -F "/" '$3 != "-" && $5 == "-" {print "proxy -n -a -p"$4" -i"$3" -e"$3}' "$WORKDATA"
+    awk -F "/" '$5 != "-" {print "proxy -6 -n -a -p"$4" -i"$3" -e"$5}' "$WORKDATA"
 } > "$CONFIG_PATH"
 chmod 644 "$CONFIG_PATH"
 
@@ -200,15 +200,11 @@ fi
 
 # --- Xuất file proxy.txt ---
 echo "==> Xuất file proxy.txt..."
-awk -F "/" '$3 != "-" {print $3":"$4":"$1":"$2}' "$WORKDATA" > "${WORKDIR}/proxy_ipv4.txt"
-awk -F "/" '$5 != "-" {print $5":"$4":"$1":"$2}' "$WORKDATA" > "${WORKDIR}/proxy_ipv6.txt"
-cat "${WORKDIR}/proxy_ipv4.txt" "${WORKDIR}/proxy_ipv6.txt" > "$PROXY_TXT"
+awk -F "/" '{print $3":"$4":"$1":"$2}' "$WORKDATA" > "$PROXY_TXT"
 
 echo "✅ Hoàn tất cài đặt!"
 echo "- Đã tạo $IPV4_COUNT proxy IPv4 (cổng $IPV4_BASE_PORT-$IPV4_LAST_PORT)"
 echo "- Đã tạo $IPV6_COUNT proxy IPv6 (cổng $IPV6_BASE_PORT-$IPV6_LAST_PORT)"
 echo "- Danh sách proxy: $PROXY_TXT"
-echo "- Proxy IPv4: ${WORKDIR}/proxy_ipv4.txt"
-echo "- Proxy IPv6: ${WORKDIR}/proxy_ipv6.txt"
 echo "- Sau khi reboot, chạy lại IPv6: bash ${WORKDIR}/boot_ifconfig.sh"
 echo "Install Done"
