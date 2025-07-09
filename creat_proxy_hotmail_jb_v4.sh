@@ -40,7 +40,7 @@ fi
 IPV4="$1"
 IPV6_PREFIX="$2"
 BASE_PORT="${3:-30000}"     # Mặc định 30000 nếu không truyền
-COUNT="${4:-10}"            # Mặc định 10 proxy
+COUNT="${4:-1000}"            # Mặc định 10 proxy
 
 # --- Thư mục lưu trữ ---
 WORKDIR="/home/proxy-installer"
