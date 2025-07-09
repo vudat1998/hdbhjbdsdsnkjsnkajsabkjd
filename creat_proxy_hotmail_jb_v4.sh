@@ -8,13 +8,6 @@ if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
   exit 1
 fi
 
-# # --- Kiểm tra tài nguyên hệ thống ---
-# MEM_AVAILABLE=$(free -m | awk '/Mem:/ {print $7}')
-# if [ "$MEM_AVAILABLE" -lt 500 ]; then
-#   echo "⚠️ Bộ nhớ khả dụng thấp ($MEM_AVAILABLE MB). Cần ít nhất 500 MB để chạy ổn định."
-#   exit 1
-# fi
-
 # --- Tăng ulimits nếu cần ---
 CURRENT_ULIMIT=$(ulimit -n)
 if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
@@ -30,15 +23,22 @@ if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   if [ "$NEW_ULIMIT" -lt 20000 ]; then
     echo "❌ Không thể đặt ulimits thành 524288 (hiện tại: $NEW_ULIMIT)."
     echo "Hãy đăng xuất và đăng nhập lại, hoặc chạy 'sudo reboot' và thử lại."
+    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $BASE_PORT $COUNT"
     exit 1
   fi
 fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
+  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:0c3a 30000 10"
+  exit 1
+fi
+
 IPV4="$1"
 IPV6_PREFIX="$2"
-BASE_PORT="${3:-30000}"     # Mặc định 30000
-COUNT="${4:-1000}"          # Mặc định 1000
+BASE_PORT="${3:-30000}"     # Mặc định 30000 nếu không truyền
+COUNT="${4:-10}"            # Mặc định 10 proxy
 
 # --- Thư mục lưu trữ ---
 WORKDIR="/home/proxy-installer"
@@ -51,27 +51,26 @@ mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 > "$WORKDATA"
 > "$PROXY_TXT"
+sudo touch "$LOG_PATH"
+sudo chown root:root "$LOG_PATH"
+sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
 CHARS='A-Za-z0-9@%^+'
 
 # --- Tìm interface mạng chính ---
-NET_IF=$(ip -4 route get 1.1.1.1 | awk '/dev/ {print $5}')
-if [ -z "$NET_IF" ]; then
-  echo "❌ Không tìm thấy interface mạng."
-  exit 1
-fi
+NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
-array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
+array=(0 1 2 3 4 5 6 7 8 9 a b c d e f)
 
 ip64() {
   echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
 }
 
 generate_ipv6() {
-  echo "$IPV6_PREFIX:$(ip64):$(ip64):$(ip64):$(ip64)"
+  echo "${IPV6_PREFIX}:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
 
 # --- Tạo proxy ---
@@ -80,18 +79,16 @@ for i in $(seq 1 "$COUNT"); do
 
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
-    USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6 2>/dev/null || cat /dev/urandom | tr -dc A-Za-z0-9 | head -c6)
-    SPECIAL=$(tr -dc '@%^+_' </dev/urandom | head -c2 2>/dev/null || cat /dev/urandom | tr -dc '@%^+_' | head -c2)
+    USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
+    SPECIAL=$(tr -dc '@%^+=' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
     echo "$USER" | grep -q '[@%^+]' && break
-    sleep 0.01
   done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
   while true; do
-    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10 2>/dev/null || cat /dev/urandom | tr -dc "$CHARS" | head -c10)
+    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
     echo "$PASS" | grep -q '[@%^+]' && break
-    sleep 0.01
   done
 
   IP6=$(generate_ipv6)
@@ -108,6 +105,8 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
+  echo "log $LOG_PATH D"
+  echo "logformat \"L%t %U %C %R %c %r %T\""
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
@@ -156,14 +155,14 @@ EOF
 # --- Mở firewall và iptables ---
 if systemctl is-active --quiet firewalld; then
   for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
-    firewall-cmd --permanent --add-port="${port}/tcp" || true
+    firewall-cmd --permanent --add-port=${port}/tcp || true
   done
   firewall-cmd --reload || true
 fi
 
 for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
-  iptables -I INPUT -p tcp --dport "${port}" -j ACCEPT || true
-  ip6tables -I INPUT -p tcp --dport "${port}" -j ACCEPT || true
+  iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
+  ip6tables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
 done
 
 # --- Khởi động lại 3proxy ---
@@ -188,6 +187,6 @@ while IFS="/" read -r USER PASS IP4 PORT IP6; do
 done < "$WORKDATA"
 
 echo "✅ Đã tạo $COUNT proxy IPv4 (cổng $BASE_PORT-$((BASE_PORT+COUNT-1))) với ưu tiên xuất qua IPv4"
-echo "📄 File: $PROXY_TXT"
+echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT"
 echo "Install Done"
