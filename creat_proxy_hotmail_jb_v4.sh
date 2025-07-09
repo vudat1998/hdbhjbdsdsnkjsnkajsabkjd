@@ -129,7 +129,7 @@ done
   awk -F "/" '{
     u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
     print "allow " u
-    print "proxy -6 -n -a -p" port " -i:: -i0.0.0.0 -e" ip6 " -e" ip4
+    print "proxy -n -a -p" port " -i:: -i0.0.0.0 -e" ip4 " -e" ip6
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
