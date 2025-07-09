@@ -8,15 +8,20 @@ if ! [ -f /usr/local/etc/3proxy/bin/3proxy ]; then
   exit 1
 fi
 
+# --- Kiểm tra tài nguyên hệ thống ---
+MEM_AVAILABLE=$(free -m | awk '/Mem:/ {print $7}')
+if [ "$MEM_AVAILABLE" -lt 500 ]; then
+  echo "⚠️ Bộ nhớ khả dụng thấp ($MEM_AVAILABLE MB). Cần ít nhất 500 MB để chạy ổn định."
+  exit 1
+fi
+
 # --- Tăng ulimits nếu cần ---
 CURRENT_ULIMIT=$(ulimit -n)
 if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   echo "⚠️ ulimits quá thấp ($CURRENT_ULIMIT). Tăng lên 524288..."
   echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
-  # Xóa các dòng DefaultLimitNOFILE cũ để tránh xung đột
   sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/system.conf
   sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/user.conf
-  # Thêm dòng mới với cú pháp đúng
   echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/system.conf
   echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/user.conf
   sudo systemctl daemon-reexec
@@ -40,7 +45,13 @@ fi
 IPV4="$1"
 IPV6_PREFIX="$2"
 BASE_PORT="${3:-30000}"     # Mặc định 30000 nếu không truyền
-COUNT="${4:-1000}"            # Mặc định 10 proxy
+COUNT="${4:-10}"            # Mặc định 10 proxy
+
+# --- Giới hạn số proxy để tránh treo ---
+if [ "$COUNT" -gt 100 ]; then
+  echo "⚠️ Số lượng proxy ($COUNT) quá lớn, có thể gây treo. Giới hạn tối đa 100."
+  COUNT=100
+fi
 
 # --- Thư mục lưu trữ ---
 WORKDIR="/home/proxy-installer"
@@ -58,14 +69,18 @@ sudo chown root:root "$LOG_PATH"
 sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
-CHARS='A-Za-z0-9@%&^_+-'
+CHARS='A-Za-z0-9@%^+'
 
 # --- Tìm interface mạng chính ---
-NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
+NET_IF=$(ip -4 route get 1.1.1.1 | awk '/dev/ {print $5}')
+if [ -z "$NET_IF" ]; then
+  echo "❌ Không tìm thấy interface mạng."
+  exit 1
+fi
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
-array=(1 2 3 6 7 8 9 0 a b c d e f)
+array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
 
 ip64() {
   echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
@@ -81,15 +96,18 @@ for i in $(seq 1 "$COUNT"); do
 
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
-    USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
-    SPECIAL=$(tr -dc '@%$^_+-' </dev/urandom | head -c2)
+    USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6 2>/dev/null || cat /dev/urandom | tr -dc A-Za-z0-9 | head -c6)
+    SPECIAL=$(tr -dc '@%^+_' </dev/urandom | head -c2 2>/dev/null || cat /dev/urandom | tr -dc '@%^+_' | head -c2)
     USER="${USER_RAW}${SPECIAL}"
-    done
+    echo "$USER" | grep -q '[@%^+]' && break
+    sleep 0.01  # Tránh vòng lặp vô hạn
+  done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
   while true; do
-    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
-    echo "$PASS" | grep -q '[@%$^]' && break
+    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10 2>/dev/null || cat /dev/urandom | tr -dc "$CHARS" | head -c10)
+    echo "$PASS" | grep -q '[@%^+]' && break
+    sleep 0.01
   done
 
   IP6=$(generate_ipv6)
@@ -156,14 +174,14 @@ EOF
 # --- Mở firewall và iptables ---
 if systemctl is-active --quiet firewalld; then
   for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
-    firewall-cmd --permanent --add-port=${port}/tcp || true
+    firewall-cmd --permanent --add-port="${port}/tcp" || true
   done
   firewall-cmd --reload || true
 fi
 
 for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
-  iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
-  ip6tables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
+  iptables -I INPUT -p tcp --dport "${port}" -j ACCEPT || true
+  ip6tables -I INPUT -p tcp --dport "${port}" -j ACCEPT || true
 done
 
 # --- Khởi động lại 3proxy ---
