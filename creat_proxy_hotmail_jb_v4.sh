@@ -54,6 +54,7 @@ cd "$WORKDIR"
 > "$WORKDATA"
 > "$PROXY_TXT"
 sudo touch "$LOG_PATH"
+sudo chown root:root "$LOG_PATH"
 sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
@@ -64,7 +65,7 @@ NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
-array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
+array=(1 2 3 6 7 8 9 0 a b c d e f)
 
 ip64() {
   echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
@@ -81,15 +82,14 @@ for i in $(seq 1 "$COUNT"); do
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
     USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
-    SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
+    SPECIAL=$(tr -dc '@%$^_+-' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
-    echo "$USER" | grep -q '[@%&^_+-]' && break
-  done
+    done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
   while true; do
     PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
-    echo "$PASS" | grep -q '[@%&^_+-]' && break
+    echo "$PASS" | grep -q '[@%$^]' && break
   done
 
   IP6=$(generate_ipv6)
@@ -129,7 +129,7 @@ done
   awk -F "/" '{
     u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
     print "allow " u
-    print "proxy -n -a -p" port " -i:: -i0.0.0.0 -e" ip4 " -e" ip6
+    print "proxy -n -a -p" port " -i0.0.0.0 -i:: -e" ip4 " -e" ip6
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
@@ -187,7 +187,7 @@ while IFS="/" read -r USER PASS IP4 PORT IP6; do
   echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
-echo "✅ Đã tạo $COUNT proxy IPv4 + IPv6, mỗi proxy dùng port riêng từ $BASE_PORT"
+echo "✅ Đã tạo $COUNT proxy IPv4 (cổng $BASE_PORT-$((BASE_PORT+COUNT-1))) với ưu tiên xuất qua IPv4"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT"
 echo "Install Done"
