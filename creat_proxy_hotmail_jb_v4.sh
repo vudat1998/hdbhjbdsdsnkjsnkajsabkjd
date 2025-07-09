@@ -13,27 +13,16 @@ CURRENT_ULIMIT=$(ulimit -n)
 if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   echo "⚠️ ulimits quá thấp ($CURRENT_ULIMIT). Tăng lên 524288..."
   echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
-  # Xóa các dòng DefaultLimitNOFILE cũ để tránh xung đột
-  sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/system.conf
-  sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/user.conf
-  # Thêm dòng mới với cú pháp đúng
-  echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/system.conf
-  echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/user.conf
+  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/system.conf
+  sudo sed -i 's/#DefaultLimitNOFILE=/DefaultLimitNOFILE=524288/' /etc/systemd/user.conf
   sudo systemctl daemon-reexec
   ulimit -n 524288
-  NEW_ULIMIT=$(ulimit -n)
-  if [ "$NEW_ULIMIT" -lt 20000 ]; then
-    echo "❌ Không thể đặt ulimits thành 524288 (hiện tại: $NEW_ULIMIT)."
-    echo "Hãy đăng xuất và đăng nhập lại, hoặc chạy 'sudo reboot' và thử lại."
-    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $BASE_PORT $COUNT"
-    exit 1
-  fi
 fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
 if [ -z "$1" ] || [ -z "$2" ]; then
   echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
-  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:c3a 30000 10"
+  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:0c3a 30000 10"
   exit 1
 fi
 
@@ -47,15 +36,11 @@ WORKDIR="/home/proxy-installer"
 WORKDATA="$WORKDIR/data.txt"
 PROXY_TXT="$WORKDIR/proxy.txt"
 CONFIG_PATH="/usr/local/etc/3proxy/3proxy.cfg"
-LOG_PATH="/var/log/3proxy.log"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 > "$WORKDATA"
 > "$PROXY_TXT"
-sudo touch "$LOG_PATH"
-sudo chown root:root "$LOG_PATH"
-sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
 CHARS='A-Za-z0-9@%&^_+-'
@@ -65,7 +50,7 @@ NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
-array=(1 2 3 6 7 8 9 0 a b c d e f)
+array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
 
 ip64() {
   echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
@@ -82,21 +67,22 @@ for i in $(seq 1 "$COUNT"); do
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
     USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
-    SPECIAL=$(tr -dc '@%$^_+-' </dev/urandom | head -c2)
+    SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
-    done
+    echo "$USER" | grep -q '[@%&^_+-]' && break
+  done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
   while true; do
     PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
-    echo "$PASS" | grep -q '[@%$^]' && break
+    echo "$PASS" | grep -q '[@%&^_+-]' && break
   done
 
   IP6=$(generate_ipv6)
 
   # Gán IPv6 vào interface nếu chưa có
   if ! ip -6 addr show dev "$NET_IF" | grep -q "${IP6}/64"; then
-    sudo ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
+    ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
       echo "⚠️ Không thể gán IPv6: $IP6, tiếp tục với IPv4..."
     }
   fi
@@ -106,8 +92,6 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
-  echo "log $LOG_PATH D"
-  echo "logformat \"L%t %U %C %R %c %r %T\""
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
@@ -133,7 +117,7 @@ done
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
-sudo chmod 644 "$CONFIG_PATH"
+chmod 644 "$CONFIG_PATH"
 
 # --- Sửa file dịch vụ systemd ---
 cat << EOF > /etc/systemd/system/3proxy.service
@@ -187,7 +171,7 @@ while IFS="/" read -r USER PASS IP4 PORT IP6; do
   echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
-echo "✅ Đã tạo $COUNT proxy IPv4 (cổng $BASE_PORT-$((BASE_PORT+COUNT-1))) với ưu tiên xuất qua IPv4"
+echo "✅ Đã tạo $COUNT proxy IPv4 + IPv6, mỗi proxy dùng port riêng từ $BASE_PORT"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT"
 echo "Install Done"
