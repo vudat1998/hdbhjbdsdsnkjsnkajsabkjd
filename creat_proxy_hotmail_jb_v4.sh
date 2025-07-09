@@ -13,10 +13,8 @@ CURRENT_ULIMIT=$(ulimit -n)
 if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   echo "⚠️ ulimits quá thấp ($CURRENT_ULIMIT). Tăng lên 524288..."
   echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
-  # Xóa các dòng DefaultLimitNOFILE cũ để tránh xung đột
   sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/system.conf
   sudo sed -i '/DefaultLimitNOFILE=/d' /etc/systemd/user.conf
-  # Thêm dòng mới với cú pháp đúng
   echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/system.conf
   echo "DefaultLimitNOFILE=524288:524288" | sudo tee -a /etc/systemd/user.conf
   sudo systemctl daemon-reexec
@@ -25,22 +23,24 @@ if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   if [ "$NEW_ULIMIT" -lt 20000 ]; then
     echo "❌ Không thể đặt ulimits thành 524288 (hiện tại: $NEW_ULIMIT)."
     echo "Hãy đăng xuất và đăng nhập lại, hoặc chạy 'sudo reboot' và thử lại."
-    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $BASE_PORT $COUNT"
+    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $IPV4_BASE_PORT $IPV6_BASE_PORT $IPV4_COUNT $IPV6_COUNT"
     exit 1
   fi
 fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
-  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:0c3a 30000 10"
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ] || [ -z "$6" ]; then
+  echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> <IPV4_BASE_PORT> <IPV6_BASE_PORT> <IPV4_COUNT> <IPV6_COUNT>"
+  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:0c3a 30000 40000 100 500"
   exit 1
 fi
 
 IPV4="$1"
 IPV6_PREFIX="$2"
-BASE_PORT="${3:-30000}"     # Mặc định 30000 nếu không truyền
-COUNT="${4:-1000}"            # Mặc định 10 proxy
+IPV4_BASE_PORT="$3"     # Cổng bắt đầu cho proxy IPv4
+IPV6_BASE_PORT="$4"     # Cổng bắt đầu cho proxy IPv6
+IPV4_COUNT="$5"         # Số lượng proxy IPv4
+IPV6_COUNT="$6"         # Số lượng proxy IPv6
 
 # --- Thư mục lưu trữ ---
 WORKDIR="/home/proxy-installer"
@@ -71,13 +71,34 @@ generate_ipv6() {
   echo "$IPV6_PREFIX:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
 
-# --- Tạo proxy ---
-for i in $(seq 1 "$COUNT"); do
-  PORT=$((BASE_PORT + i - 1))
+# --- Tạo proxy IPv4 ---
+for i in $(seq 1 "$IPV4_COUNT"); do
+  PORT=$((IPV4_BASE_PORT + i - 1))
 
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
     USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
+    SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
+    USER="${USER_RAW}${SPECIAL}"
+    echo "$USER" | grep -q '[@%&^_+-]' && break
+  done
+
+  # Tạo pass có ít nhất 1 ký tự đặc biệt
+  while true; do
+    PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
+    echo "$PASS" | grep -q '[@%&^_+-]' && break
+  done
+
+  echo "$USER/$PASS/$IPV4/$PORT/-" >> "$WORKDATA"
+done
+
+# --- Tạo proxy IPv6 ---
+for i in $(seq 1 "$IPV6_COUNT"); do
+  PORT=$((IPV6_BASE_PORT + i - 1))
+
+  # Tạo user có ít nhất 1 ký tự đặc biệt
+  while true; do
+    USER_RAW=$(tr -dc A-Za-z010-9 </dev/urandom | head -c6)
     SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
     echo "$USER" | grep -q '[@%&^_+-]' && break
@@ -94,11 +115,11 @@ for i in $(seq 1 "$COUNT"); do
   # Gán IPv6 vào interface nếu chưa có
   if ! ip -6 addr show dev "$NET_IF" | grep -q "${IP6}/64"; then
     ip -6 addr add "${IP6}/64" dev "$NET_IF" || {
-      echo "⚠️ Không thể gán IPv6: $IP6, tiếp tục với IPv4..."
+      echo "⚠️ Không thể gán IPv6: $IP6, bỏ qua..."
     }
   fi
 
-  echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
+  echo "$USER/$PASS/-/$PORT/$IP6" >> "$WORKDATA"
 done
 
 # --- Tạo cấu hình 3proxy ---
@@ -120,11 +141,18 @@ done
   
   echo "auth strong"
 
-  # rules
-  awk -F "/" '{
-    u=$1; p=$2; ip4=$3; port=$4; ip6=$5;
+  # rules for IPv4 proxies
+  awk -F "/" '$3 != "-" {
+    u=$1; p=$2; ip4=$3; port=$4;
     print "allow " u
-    print "proxy -n -a -p" port " -i0.0.0.0 -i:: -e" ip4 " -e" ip6
+    print "proxy -n -a -p" port " -i0.0.0.0 -e" ip4
+  }' "$WORKDATA"
+
+  # rules for IPv6 proxies
+  awk -F "/" '$5 != "-" {
+    u=$1; p=$2; port=$4; ip6=$5;
+    print "allow " u
+    print "proxy -n -a -p" port " -i:: -e" ip6
   }' "$WORKDATA"
 } > "$CONFIG_PATH"
 
@@ -150,13 +178,13 @@ EOF
 
 # --- Mở firewall và iptables ---
 if systemctl is-active --quiet firewalld; then
-  for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
+  for port in $(awk -F "/" '{print $4}' "$WORKDATA" | sort -u); do
     firewall-cmd --permanent --add-port=${port}/tcp || true
   done
   firewall-cmd --reload || true
 fi
 
-for port in $(awk -F "/" '{print $4}' "$WORKDATA"); do
+for port in $(awk -F "/" '{print $4}' "$WORKDATA" | sort -u); do
   iptables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
   ip6tables -I INPUT -p tcp --dport ${port} -j ACCEPT || true
 done
@@ -175,14 +203,17 @@ else
   exit 1
 fi
 
-# --- Xuất proxy.txt (chỉ với IPv4) ---
+# --- Xuất proxy.txt ---
 while IFS="/" read -r USER PASS IP4 PORT IP6; do
-  UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
-  PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
-  echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
+  if [ "$IP4" != "-" ]; then
+    echo "${USER}:${PASS}:${IP4}:${PORT}" >> "$PROXY_TXT"
+  fi
+  if [ "$IP6" != "-" ]; then
+    echo "${USER}:${PASS}:${IP6}:${PORT}" >> "$PROXY_TXT"
+  fi
 done < "$WORKDATA"
 
-echo "✅ Đã tạo $COUNT proxy IPv4 + IPv6, mỗi proxy dùng port riêng từ $BASE_PORT"
+echo "✅ Đã tạo $IPV4_COUNT proxy IPv4 (từ cổng $IPV4_BASE_PORT) và $IPV6_COUNT proxy IPv6 (từ cổng $IPV6_BASE_PORT)"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT"
 echo "Install Done"
