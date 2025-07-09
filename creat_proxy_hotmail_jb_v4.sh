@@ -30,28 +30,15 @@ if [ "$CURRENT_ULIMIT" -lt 20000 ]; then
   if [ "$NEW_ULIMIT" -lt 20000 ]; then
     echo "❌ Không thể đặt ulimits thành 524288 (hiện tại: $NEW_ULIMIT)."
     echo "Hãy đăng xuất và đăng nhập lại, hoặc chạy 'sudo reboot' và thử lại."
-    echo "Sau khi reboot, chạy lại script: bash $0 $IPV4 $IPV6_PREFIX $BASE_PORT $COUNT"
     exit 1
   fi
 fi
 
 # --- CẤU HÌNH ĐẦU VÀO ---
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "❌ Cú pháp: bash $0 <IPv4> <IPv6_PREFIX> [BASE_PORT] [COUNT]"
-  echo "   VD: bash $0 45.76.215.61 2001:19f0:7002:c3a 30000 10"
-  exit 1
-fi
-
 IPV4="$1"
 IPV6_PREFIX="$2"
-BASE_PORT="${3:-30000}"     # Mặc định 30000 nếu không truyền
-COUNT="${4:-10}"            # Mặc định 10 proxy
-
-# --- Giới hạn số proxy để tránh treo ---
-if [ "$COUNT" -gt 100 ]; then
-  echo "⚠️ Số lượng proxy ($COUNT) quá lớn, có thể gây treo. Giới hạn tối đa 100."
-  COUNT=100
-fi
+BASE_PORT="${3:-30000}"     # Mặc định 30000
+COUNT="${4:-1000}"          # Mặc định 1000
 
 # --- Thư mục lưu trữ ---
 WORKDIR="/home/proxy-installer"
@@ -64,9 +51,6 @@ mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 > "$WORKDATA"
 > "$PROXY_TXT"
-sudo touch "$LOG_PATH"
-sudo chown root:root "$LOG_PATH"
-sudo chmod 644 "$LOG_PATH"
 
 # --- Ký tự hợp lệ cho user/pass ---
 CHARS='A-Za-z0-9@%^+'
@@ -100,7 +84,7 @@ for i in $(seq 1 "$COUNT"); do
     SPECIAL=$(tr -dc '@%^+_' </dev/urandom | head -c2 2>/dev/null || cat /dev/urandom | tr -dc '@%^+_' | head -c2)
     USER="${USER_RAW}${SPECIAL}"
     echo "$USER" | grep -q '[@%^+]' && break
-    sleep 0.01  # Tránh vòng lặp vô hạn
+    sleep 0.01
   done
 
   # Tạo pass có ít nhất 1 ký tự đặc biệt
@@ -124,8 +108,6 @@ done
 
 # --- Tạo cấu hình 3proxy ---
 {
-  echo "log $LOG_PATH D"
-  echo "logformat \"L%t %U %C %R %c %r %T\""
   echo "maxconn 10000"
   echo "nscache 65536"
   echo "timeouts 1 5 30 60 180 1800 15 60"
@@ -206,6 +188,6 @@ while IFS="/" read -r USER PASS IP4 PORT IP6; do
 done < "$WORKDATA"
 
 echo "✅ Đã tạo $COUNT proxy IPv4 (cổng $BASE_PORT-$((BASE_PORT+COUNT-1))) với ưu tiên xuất qua IPv4"
-echo "📄 File proxy: $PROXY_TXT"
+echo "📄 File: $PROXY_TXT"
 cat "$PROXY_TXT"
 echo "Install Done"
