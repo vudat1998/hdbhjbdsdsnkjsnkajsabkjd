@@ -205,7 +205,7 @@ fi
 while IFS="/" read -r USER PASS IP4 PORT IP6; do
   UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
   PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
-  echo "http://${UE}:${PE}@${IP4}:${PORT}" >> "$PROXY_TXT"
+  echo "${UE}:${PE}:${IP4}:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
 echo "✅ Đã tạo $IPV4_COUNT proxy IPv4 (cổng $IPV4_BASE_PORT-$IPV4_LAST_PORT)"
