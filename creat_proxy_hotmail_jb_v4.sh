@@ -212,4 +212,4 @@ echo "✅ Đã tạo $IPV4_COUNT proxy IPv4 (cổng $IPV4_BASE_PORT-$IPV4_LAST_P
 echo "✅ Đã tạo $IPV6_COUNT proxy IPv6 (cổng $IPV6_BASE_PORT-$IPV6_LAST_PORT)"
 echo "📄 File proxy: $PROXY_TXT"
 cat "$PROXY_TXT"
-echo "Done"
+echo "Install Done"
