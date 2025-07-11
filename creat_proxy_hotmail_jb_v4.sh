@@ -114,18 +114,21 @@ for i in $(seq 1 "$IPV6_COUNT"); do
     PASS=$(tr -dc "$CHARS" </dev/urandom | head -c10)
     echo "$PASS" | grep -q '[@%&^_+-]' && break
   done
-  IP6=$(generate_ipv6)
-  echo "$USER/$PASS/$IPV4/$PORT/$IP6" >> "$WORKDATA"
+  IP6_A=$(generate_ipv6)
+  IP6_B=$(generate_ipv6)
+  echo "$USER/$PASS/$IPV4/$PORT/$IP6_A/$IP6_B" >> "$WORKDATA"
 done
 
 # --- Tạo script thêm IPv6 ---
 echo "✅ Tạo script thêm IPv6..."
 cat >"${WORKDIR}/boot_ifconfig.sh" <<EOF
 #!/bin/bash
-while IFS="/" read -r _ _ _ _ ipv6; do
-  if [ "\$ipv6" != "-" ]; then
-    ip -6 addr add \$ipv6/64 dev $NET_IF && echo "success" || echo "⚠️ Không thể gán IPv6: \$ipv6"
-  fi
+while IFS="/" read -r _ _ _ _ ipv6_a ipv6_b; do
+  for ip6 in "$ipv6_a" "$ipv6_b"; do
+    [ "$ip6" != "-" ] && ip -6 addr add $ip6/64 dev $NET_IF \
+      && echo "✅ Gán IPv6: $ip6" \
+      || echo "⚠️ Không thể gán IPv6: $ip6"
+  done
 done < "$WORKDATA"
 EOF
 
@@ -148,8 +151,8 @@ bash "${WORKDIR}/boot_ifconfig.sh"
   echo ""
   echo "auth strong"
   echo "allow *"
-  awk -F "/" '$5 == "-" {print "proxy -n -a -p"$4" -i0.0.0.0 -e"$3}' "$WORKDATA"
-  awk -F "/" '$5 != "-" {print "proxy -6 -n -a -p"$4" -i0.0.0.0 -e"$5}' "$WORKDATA"
+  awk -F "/" '{print "proxy -n -a -p" $4 " -i0.0.0.0 -i:: -e" $3 " -e" $5}' "$WORKDATA"
+  awk -F "/" '{print "proxy -6 -n -a -p" $4 " -i0.0.0.0 -e" $6}' "$WORKDATA"
 } > "$CONFIG_PATH"
 chmod 644 "$CONFIG_PATH"
 
@@ -202,7 +205,9 @@ else
 fi
 
 # --- Xuất proxy.txt (chỉ với IPv4) ---
-while IFS="/" read -r USER PASS IP4 PORT IP6; do
+while IFS="/" read -r USER PASS IP4 PORT _ _; do
+  # hoặc để rõ IP6_A và IP6_B nếu cần:
+  # read -r USER PASS IP4 PORT IP6_A IP6_B
   UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
   PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
   echo "${UE}:${PE}:${IP4}:${PORT}" >> "$PROXY_TXT"
