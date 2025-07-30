@@ -64,7 +64,7 @@ NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Ký tự hợp lệ cho user/pass ---
-CHARS='A-Za-z0-9@%&_+-'
+CHARS='A-Za-z0-9@%&^_+-.'
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
@@ -148,15 +148,20 @@ bash "${WORKDIR}/boot_ifconfig.sh"
   echo "setuid 65535"
   echo "flush"
   echo -n "users "
+  echo -n "users "
   awk -F "/" '{
-    gsub(/\\/,"\\\\",$1);    # escape backslash trong user
-    gsub(/:/,"\\:",$1);      # escape dấu : trong user
-    gsub(/ /,"\\ ",$1);      # escape dấu cách trong user
-  
-    gsub(/\\/,"\\\\",$2);    # escape backslash trong pass
-    gsub(/:/,"\\:",$2);      # escape dấu : trong pass
-    gsub(/ /,"\\ ",$2);      # escape dấu cách trong pass
-  
+    for (i=1; i<=2; i++) {
+      gsub(/\\/,"\\\\",$i)   # escape backslash
+      gsub(/:/,"\\:",$i)     # escape colon
+      gsub(/ /,"\\ ",$i)     # escape space
+      gsub(/#/,"\\#",$i)     # escape hash
+      gsub(/;/,"\\;",$i)     # escape semicolon
+      gsub(/"/,"\\\"",$i)    # escape double quote
+      gsub(/'\''/,"\\'\''",$i) # escape single quote
+      gsub(/&/,"\\&",$i)     # escape ampersand
+      gsub(/\+/,"\\+",$i)    # escape plus
+      gsub(/%/,"\\%",$i)     # escape percent
+    }
     printf "%s:CL:%s ", $1, $2
   }' "$WORKDATA"
   echo ""
