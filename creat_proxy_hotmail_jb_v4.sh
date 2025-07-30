@@ -148,7 +148,17 @@ bash "${WORKDIR}/boot_ifconfig.sh"
   echo "setuid 65535"
   echo "flush"
   echo -n "users "
-  awk -F "/" '{gsub(/[:\\]/, "\\\\&", $2); printf "%s:CL:%s ", $1, $2}' "$WORKDATA"
+  awk -F "/" '{
+    gsub(/\\/,"\\\\",$1);    # escape backslash trong user
+    gsub(/:/,"\\:",$1);      # escape dấu : trong user
+    gsub(/ /,"\\ ",$1);      # escape dấu cách trong user
+  
+    gsub(/\\/,"\\\\",$2);    # escape backslash trong pass
+    gsub(/:/,"\\:",$2);      # escape dấu : trong pass
+    gsub(/ /,"\\ ",$2);      # escape dấu cách trong pass
+  
+    printf "%s:CL:%s ", $1, $2
+  }' "$WORKDATA"
   echo ""
   echo "auth strong"
   echo "allow *"
