@@ -64,7 +64,7 @@ NET_IF=$(ip -4 route get 1.1.1.1 | awk '{print $5}')
 echo "✅ Sử dụng interface: $NET_IF"
 
 # --- Ký tự hợp lệ cho user/pass ---
-CHARS='A-Za-z0-9@%&^_+-'
+CHARS='A-Za-z0-9@%&_+-'
 
 # --- Mảng hex và hàm sinh đoạn IPv6 ---
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
