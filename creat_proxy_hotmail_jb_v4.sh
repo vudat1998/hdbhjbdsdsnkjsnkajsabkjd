@@ -207,9 +207,7 @@ fi
 
 # --- Xuất proxy.txt (chỉ với IPv4) ---
 while IFS="/" read -r USER PASS IP4 PORT IP6_IP4 IP6_IPV6; do
-  UE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$USER'''))")
-  PE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PASS'''))")
-  echo "${UE}:${PE}:${IP4}:${PORT}" >> "$PROXY_TXT"
+  echo "${USER}:${PASS}:${IP4}:${PORT}" >> "$PROXY_TXT"
 done < "$WORKDATA"
 
 echo "✅ Đã tạo $IPV4_COUNT proxy IPv4 (cổng $IPV4_BASE_PORT-$IPV4_LAST_PORT)"
