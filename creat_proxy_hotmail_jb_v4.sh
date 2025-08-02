@@ -85,7 +85,7 @@ for i in $(seq 1 "$IPV4_COUNT"); do
   # Tạo user có ít nhất 1 ký tự đặc biệt
   while true; do
     USER_RAW=$(tr -dc A-Za-z0-9 </dev/urandom | head -c6)
-    SPECIAL=$(tr -dc '@%&^_+-' </dev/urandom | head -c2)
+    SPECIAL=$(tr -dc '@_-' </dev/urandom | head -c2)
     USER="${USER_RAW}${SPECIAL}"
     echo "$USER" | grep -q '[@_-]' && break
   done
